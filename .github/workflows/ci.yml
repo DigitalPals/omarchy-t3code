@@ -80,6 +80,7 @@ jobs:
       - name: Validate the clean marketplace checkout
         run: |
           marketplace_tree=$(mktemp -d)
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git archive --format=tar HEAD | tar -xf - -C "$marketplace_tree"
           omarchy plugin validate "$marketplace_tree"
       - run: scripts/check-qml
