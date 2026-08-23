@@ -12,7 +12,9 @@ import { NativeClerkProvider } from "../bridge/src/auth/nativeProvider.ts";
 import { makePkceRequest, stateMatches } from "../bridge/src/auth/pkce.ts";
 import {
   activateT3ProtocolHandler,
+  CALLBACK_DESKTOP_ID,
   clearT3ProtocolDefault,
+  configuredT3ProtocolOwners,
   installT3CallbackDesktop,
   type MimeCommand,
 } from "../bridge/src/auth/protocolHandler.ts";
@@ -318,62 +320,87 @@ test("native callback forwarding rejects unexpected schemes and missing pending 
   );
 });
 
-test("T3 callback handler temporarily preserves an existing desktop owner", async () => {
-  let current = "t3code-nightly.desktop";
+test("T3 callback handler ignores a misleading xdg fallback and restores the explicit owner", async () => {
+  let configured = ["t3code-nightly.desktop"];
   const calls: string[][] = [];
   const command: MimeCommand = async (args) => {
     calls.push(args);
-    if (args[0] === "query") return { code: 0, stdout: `${current}\n`, stderr: "" };
+    if (args[0] === "query") return { code: 0, stdout: `${CALLBACK_DESKTOP_ID}\n`, stderr: "" };
     assert.equal(args[0], "default");
-    current = args[1] ?? "";
+    configured = args[1] ? [args[1]] : [];
     return { code: 0, stdout: "", stderr: "" };
   };
   let desktopRemoved = false;
   const restore = await activateT3ProtocolHandler({
     command,
+    configuredOwners: async () => configured,
     registerDesktop: async () => async () => { desktopRemoved = true; },
   });
-  assert.equal(current, "io.github.digitalpals.omarchy-t3code-callback.desktop");
+  assert.deepEqual(configured, [CALLBACK_DESKTOP_ID]);
   await restore();
-  assert.equal(current, "t3code-nightly.desktop");
+  assert.deepEqual(configured, ["t3code-nightly.desktop"]);
   assert.equal(desktopRemoved, true);
-  assert(calls.some((args) => args.join(" ").includes("x-scheme-handler/t3code")));
+  assert.deepEqual(calls, [
+    ["default", CALLBACK_DESKTOP_ID, "x-scheme-handler/t3code"],
+    ["default", "t3code-nightly.desktop", "x-scheme-handler/t3code"],
+  ]);
 });
 
 test("legacy callback ownership is restored after the login window", async () => {
-  let current = "io.github.omarchy-t3code-callback.desktop";
+  let configured = ["io.github.omarchy-t3code-callback.desktop"];
   const command: MimeCommand = async (args) => {
-    if (args[0] === "query") return { code: 0, stdout: `${current}\n`, stderr: "" };
-    current = args[1] ?? "";
+    if (args[0] === "query") return { code: 0, stdout: `${configured[0] ?? ""}\n`, stderr: "" };
+    configured = args[1] ? [args[1]] : [];
     return { code: 0, stdout: "", stderr: "" };
   };
   const restore = await activateT3ProtocolHandler({
     command,
+    configuredOwners: async () => configured,
     registerDesktop: async () => async () => undefined,
   });
-  assert.equal(current, "io.github.digitalpals.omarchy-t3code-callback.desktop");
+  assert.deepEqual(configured, [CALLBACK_DESKTOP_ID]);
   await restore();
-  assert.equal(current, "io.github.omarchy-t3code-callback.desktop");
+  assert.deepEqual(configured, ["io.github.omarchy-t3code-callback.desktop"]);
 });
 
 test("callback handler clears a newly created default before removing its desktop entry", async () => {
-  let current = "";
+  let configured: string[] | null = null;
   let cleared = false;
   let removed = false;
   const command: MimeCommand = async (args) => {
-    if (args[0] === "query") return { code: 0, stdout: `${current}\n`, stderr: "" };
-    current = args[1] ?? "";
+    if (args[0] === "query") return { code: 0, stdout: "", stderr: "" };
+    configured = args[1] ? [args[1]] : [];
     return { code: 0, stdout: "", stderr: "" };
   };
   const restore = await activateT3ProtocolHandler({
     command,
-    clearDefault: async () => { current = ""; cleared = true; },
+    clearDefault: async () => { configured = null; cleared = true; },
+    configuredOwners: async () => configured,
     registerDesktop: async () => async () => { removed = true; },
   });
-  assert.equal(current, "io.github.digitalpals.omarchy-t3code-callback.desktop");
+  assert.deepEqual(configured, [CALLBACK_DESKTOP_ID]);
   await restore();
-  assert.equal(current, "");
+  assert.equal(configured, null);
   assert.equal(cleared, true);
+  assert.equal(removed, true);
+});
+
+test("callback cleanup does not overwrite a handler changed during login", async () => {
+  let configured = ["t3code-nightly.desktop"];
+  let removed = false;
+  const command: MimeCommand = async (args) => {
+    if (args[0] === "query") return { code: 0, stdout: `${configured[0] ?? ""}\n`, stderr: "" };
+    configured = args[1] ? [args[1]] : [];
+    return { code: 0, stdout: "", stderr: "" };
+  };
+  const restore = await activateT3ProtocolHandler({
+    command,
+    configuredOwners: async () => configured,
+    registerDesktop: async () => async () => { removed = true; },
+  });
+  configured = ["other-t3-client.desktop"];
+  await restore();
+  assert.deepEqual(configured, ["other-t3-client.desktop"]);
   assert.equal(removed, true);
 });
 
@@ -382,6 +409,8 @@ test("callback desktop registration is hidden, quoted, and removed after login",
   const data = join(root, "data");
   const desktop = join(data, "applications", "io.github.digitalpals.omarchy-t3code-callback.desktop");
   try {
+    await mkdir(join(data, "applications"), { recursive: true });
+    await writeFile(desktop, "stale callback entry\n");
     const removeDesktop = await installT3CallbackDesktop(
       { HOME: root, XDG_CONFIG_HOME: join(root, "config"), XDG_DATA_HOME: data },
       ["/opt/T3 Mini/t3-mini-bridge"],
@@ -392,6 +421,29 @@ test("callback desktop registration is hidden, quoted, and removed after login",
     assert.match(contents, /^Exec="\/opt\/T3 Mini\/t3-mini-bridge" --oauth-callback %u$/mu);
     await removeDesktop();
     await assert.rejects(access(desktop), (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("configured T3 owner comes from the explicit user MIME association", async () => {
+  const root = await mkdtemp(join(tmpdir(), "t3-configured-owner-"));
+  const config = join(root, "config");
+  try {
+    await mkdir(config, { recursive: true });
+    await writeFile(join(config, "mimeapps.list"), [
+      "[Default Applications]",
+      "x-scheme-handler/t3code=t3code-url-handler.desktop;",
+      "",
+    ].join("\n"));
+    assert.deepEqual(
+      await configuredT3ProtocolOwners({
+        HOME: root,
+        XDG_CONFIG_HOME: config,
+        XDG_DATA_HOME: join(root, "data"),
+      }),
+      ["t3code-url-handler.desktop"],
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

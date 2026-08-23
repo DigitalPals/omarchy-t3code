@@ -23,6 +23,7 @@ export interface ProtocolHandlerOptions {
   desktopId?: string;
   registerDesktop?: () => Promise<() => Promise<void>>;
   clearDefault?: () => Promise<void>;
+  configuredOwners?: () => Promise<string[] | null>;
 }
 
 function runXdgMime(args: string[]): Promise<CommandResult> {
@@ -90,12 +91,13 @@ function xdgRoots(environment: NodeJS.ProcessEnv = process.env): {
       throw new BridgeError("AUTH_CALLBACK_REGISTRATION_FAILED", "Desktop callback paths must be absolute.");
     }
   }
+  const dataApplications = join(data, "applications");
   return {
-    applications: join(data, "applications"),
+    applications: dataApplications,
     mimeapps: [...new Set([
       join(config, "mimeapps.list"),
       join(config, "applications", "mimeapps.list"),
-      join(data, "applications", "mimeapps.list"),
+      join(dataApplications, "mimeapps.list"),
     ])],
   };
 }
@@ -154,16 +156,6 @@ export async function installT3CallbackDesktop(
   const { applications } = xdgRoots(environment);
   const desktopPath = join(applications, CALLBACK_DESKTOP_ID);
   await mkdir(applications, { recursive: true, mode: 0o700 });
-  let previous: Buffer | null = null;
-  let previousMode = 0o644;
-  try {
-    [previous, previousMode] = await Promise.all([
-      readFile(desktopPath),
-      stat(desktopPath).then((value) => value.mode & 0o777),
-    ]);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
   await atomicWrite(desktopPath, desktopEntry(command), 0o644);
   await refreshDesktopDatabase(applications);
 
@@ -171,10 +163,39 @@ export async function installT3CallbackDesktop(
   return async (): Promise<void> => {
     if (removed) return;
     removed = true;
-    if (previous === null) await rm(desktopPath, { force: true });
-    else await atomicWrite(desktopPath, previous, previousMode);
+    await rm(desktopPath, { force: true });
     await refreshDesktopDatabase(applications);
   };
+}
+
+function configuredOwners(contents: string): string[] | null {
+  let defaults = false;
+  for (const line of contents.split(/\r?\n/u)) {
+    const section = line.trim();
+    if (section.startsWith("[") && section.endsWith("]")) {
+      defaults = section === "[Default Applications]";
+      continue;
+    }
+    if (!defaults) continue;
+    const match = line.match(/^\s*x-scheme-handler\/t3code\s*=\s*(.*)$/u);
+    if (!match) continue;
+    return (match[1] ?? "").split(";").map((owner) => owner.trim()).filter(Boolean);
+  }
+  return null;
+}
+
+export async function configuredT3ProtocolOwners(
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<string[] | null> {
+  for (const path of xdgRoots(environment).mimeapps) {
+    try {
+      const owners = configuredOwners(await readFile(path, "utf8"));
+      if (owners !== null) return owners;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+  return null;
 }
 
 function withoutDesktopAssociation(contents: string, desktopId: string): string {
@@ -219,19 +240,31 @@ export async function activateT3ProtocolHandler(
 ): Promise<() => Promise<void>> {
   const command = options.command ?? runXdgMime;
   const desktopId = options.desktopId ?? CALLBACK_DESKTOP_ID;
-  const removeDesktop = await (options.registerDesktop ?? installT3CallbackDesktop)();
+  const inspectConfiguredOwners = options.configuredOwners ?? configuredT3ProtocolOwners;
   const clearDefault = options.clearDefault ?? (() => clearT3ProtocolDefault(desktopId));
   let previous = "";
+  let removeDesktop = async (): Promise<void> => undefined;
+
+  const currentOwner = async (): Promise<string> => {
+    const owners = await inspectConfiguredOwners();
+    return owners?.[0] ?? await queryDefault(command);
+  };
   const restoreOwner = async (): Promise<void> => {
-    if (await queryDefault(command) !== desktopId) return;
+    if (await currentOwner() !== desktopId) return;
     if (previous.length > 0 && previous !== desktopId) await setDefault(command, previous);
     else await clearDefault();
   };
 
   try {
-    previous = await queryDefault(command);
-    if (previous !== desktopId) await setDefault(command, desktopId);
-    const active = await queryDefault(command);
+    const configured = await inspectConfiguredOwners();
+    previous = configured?.find((owner) => owner !== desktopId) ?? "";
+    if (previous.length === 0) {
+      const queried = await queryDefault(command);
+      if (queried !== desktopId) previous = queried;
+    }
+    removeDesktop = await (options.registerDesktop ?? installT3CallbackDesktop)();
+    await setDefault(command, desktopId);
+    const active = await currentOwner();
     if (active !== desktopId) {
       throw new BridgeError(
         "AUTH_CALLBACK_REGISTRATION_FAILED",
