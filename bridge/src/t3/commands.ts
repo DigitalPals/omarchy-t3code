@@ -88,7 +88,7 @@ function applyModelOptions(
 }
 
 function runtimeMode(payload: Payload): RuntimeMode {
-  if (payload.runtimeMode === undefined) return "full-access";
+  if (payload.runtimeMode === undefined) return "approval-required";
   const value = String(payload.runtimeMode) as RuntimeMode;
   if (!runtimeModes.has(value)) {
     throw new BridgeError("RUNTIME_MODE_INVALID", "The requested access level is invalid.");

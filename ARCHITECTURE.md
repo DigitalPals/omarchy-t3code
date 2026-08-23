@@ -160,17 +160,20 @@ points.
 
 esbuild produces ESM and CommonJS bridge bundles. `scripts/package.mjs` uses
 Node's current single-executable support (or the legacy postject path on Node
-24), runs an embedded self-test, and copies only the plugin, bundled bridge,
-documentation, and license notices. Archive entries are sorted and normalized
-to epoch timestamps, numeric root ownership, and deterministic gzip headers.
-The T3 source submodule is a build input, not part of the installed plugin.
+24), with repository-relative SEA input paths. It runs an embedded self-test
+and copies only the plugin, bundled bridge, documentation, and license notices.
+Archive entries are sorted and normalized to epoch timestamps, numeric root
+ownership, and deterministic gzip headers. The T3 source submodule is a build
+input, not part of the installed plugin.
 
 The root marketplace layout stores the x86-64 executable as a compressed,
-checksum-bound local payload. The launcher expands it atomically inside the
-plugin checkout on first use and replaces it when a future payload checksum
-changes. Release packages instead carry the executable directly and retain the
-ESM bundle only as a diagnostic fallback when a compatible `node` is already
-available. The service owns process startup, restart, SIGTERM shutdown, and
+checksum-bound local payload. CI rebuilds it with the `.node-version`-pinned
+official Linux x64 Node distribution and fails unless the tracked decompressed
+payload byte-matches the fresh source build. The launcher expands it atomically
+inside the plugin checkout on first use and replaces it when a future payload
+checksum changes. Release packages instead carry the executable directly and
+retain the ESM bundle only as a diagnostic fallback when a compatible `node`
+is already available. The service owns process startup, restart, SIGTERM shutdown, and
 therefore leaves no separately managed daemon or systemd unit. The bridge
 creates its hidden freedesktop callback entry only for sign-in and restores an
 existing `t3code` scheme owner before removing it. The archive includes

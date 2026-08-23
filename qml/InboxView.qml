@@ -13,7 +13,8 @@ Item {
   property string selectedModel: ""
   property var selectedModelOptions: []
   property string selectedModelOptionsFor: ""
-  property string selectedRuntimeMode: "full-access"
+  property string selectedRuntimeMode: "approval-required"
+  property string pendingRuntimeMode: ""
   readonly property string formattedInboxUpdatedAt: formatUpdatedAt(root.service.inbox.updatedAt)
 
   function formatUpdatedAt(value) {
@@ -107,6 +108,46 @@ Item {
     return result
   }
 
+  function runtimeModeLabel(value) {
+    if (value === "auto-accept-edits") return "Auto-accept edits"
+    if (value === "auto") return "Auto"
+    if (value === "full-access") return "Full access"
+    return "Ask first"
+  }
+
+  function runtimeModeWarning(value) {
+    if (value === "auto-accept-edits")
+      return "File edits will be approved automatically; other actions still ask."
+    if (value === "auto")
+      return "Supported providers may approve routine actions automatically."
+    if (value === "full-access")
+      return "Commands and file changes can run without approval prompts."
+    return "Commands and file changes require approval."
+  }
+
+  function resetNewTaskAccess() {
+    selectedRuntimeMode = "approval-required"
+    pendingRuntimeMode = ""
+  }
+
+  function requestRuntimeMode(value) {
+    if (value === "approval-required") {
+      resetNewTaskAccess()
+      return
+    }
+    if (value === selectedRuntimeMode) {
+      pendingRuntimeMode = ""
+      return
+    }
+    pendingRuntimeMode = value
+  }
+
+  function confirmBroaderRuntimeMode() {
+    if (!pendingRuntimeMode) return
+    selectedRuntimeMode = pendingRuntimeMode
+    pendingRuntimeMode = ""
+  }
+
   function ensureDefaults() {
     var projects = projectOptions()
     if (!selectedProject && projects.length > 0) selectedProject = projects[0].value
@@ -124,7 +165,7 @@ Item {
 
   function submitNewThread() {
     var prompt = newPrompt.text.trim()
-    if (!prompt || !selectedProject) return
+    if (!prompt || !selectedProject || pendingRuntimeMode) return
     var split = selectedModel.split("\u001f")
     root.service.createThread(
       selectedProject,
@@ -136,6 +177,7 @@ Item {
       selectedRuntimeMode)
     newPrompt.text = ""
     creating = false
+    resetNewTaskAccess()
   }
 
   function pin(threadId, pinned) { pinned ? root.service.unpin(threadId) : root.service.pin(threadId) }
@@ -153,7 +195,10 @@ Item {
     }
     function onInboxChanged() { root.ensureDefaults() }
     function onConnectionPhaseChanged() {
-      if (root.service.connectionPhase !== "connected") root.creating = false
+      if (root.service.connectionPhase !== "connected") {
+        root.creating = false
+        root.resetNewTaskAccess()
+      }
     }
   }
 
@@ -252,6 +297,7 @@ Item {
         active: enabled && !root.creating
         onClicked: {
           root.creating = !root.creating
+          root.resetNewTaskAccess()
           if (root.creating) Qt.callLater(function() { newPrompt.forceActiveFocus() })
         }
       }
@@ -338,7 +384,7 @@ Item {
               { value: "full-access", label: "Full access" }
             ]
             value: root.selectedRuntimeMode
-            onChanged: function(value) { root.selectedRuntimeMode = value }
+            onChanged: function(value) { root.requestRuntimeMode(value) }
           }
           Item {
             width: Math.max(0, createActionRow.selectorCapacity - createActionRow.selectorWidth)
@@ -349,12 +395,67 @@ Item {
             width: Style.space(32)
             height: Style.space(24)
             iconText: "󰒊"
-            tooltipText: "Create and send"
+            tooltipText: root.selectedRuntimeMode === "approval-required"
+              ? "Create with approval prompts"
+              : "Create with " + root.runtimeModeLabel(root.selectedRuntimeMode)
             active: true
-            enabled: newPrompt.text.trim().length > 0 && root.selectedProject.length > 0
+            enabled: newPrompt.text.trim().length > 0
+              && root.selectedProject.length > 0
+              && root.pendingRuntimeMode.length === 0
             horizontalPadding: Style.spacing.sm
             verticalPadding: Style.spacing.sm
             onClicked: root.submitNewThread()
+          }
+        }
+
+        BorderSurface {
+          visible: root.pendingRuntimeMode.length > 0 || root.selectedRuntimeMode !== "approval-required"
+          width: parent.width
+          height: runtimeAccessColumn.implicitHeight + Style.spacing.sm * 2
+          radius: Style.cornerRadius
+          color: Util.alpha(Color.urgent, 0.10)
+          borderSpec: Border.controlSpec("normal", Color.urgent, Color.urgent)
+
+          Column {
+            id: runtimeAccessColumn
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: Style.spacing.sm
+            spacing: Style.spacing.sm
+
+            Text {
+              width: parent.width
+              text: root.pendingRuntimeMode.length > 0
+                ? "Enable " + root.runtimeModeLabel(root.pendingRuntimeMode) + " for this task? "
+                  + root.runtimeModeWarning(root.pendingRuntimeMode)
+                : root.runtimeModeLabel(root.selectedRuntimeMode) + " is enabled for this task. "
+                  + root.runtimeModeWarning(root.selectedRuntimeMode)
+              color: Color.foreground
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
+
+            Row {
+              visible: root.pendingRuntimeMode.length > 0
+              spacing: Style.spacing.sm
+              Button {
+                text: "Keep Ask first"
+                onClicked: root.resetNewTaskAccess()
+              }
+              Button {
+                text: "Enable " + root.runtimeModeLabel(root.pendingRuntimeMode)
+                foreground: Color.urgent
+                onClicked: root.confirmBroaderRuntimeMode()
+              }
+            }
+
+            Button {
+              visible: root.pendingRuntimeMode.length === 0
+              text: "Return to Ask first"
+              onClicked: root.resetNewTaskAccess()
+            }
           }
         }
       }

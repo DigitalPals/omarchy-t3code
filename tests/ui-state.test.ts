@@ -223,6 +223,20 @@ test("new-thread composer mirrors model options and access controls from replies
   assert.match(service, /function createThread\([^)]*modelOptions, runtimeMode\)[\s\S]*payload\.modelOptions = modelOptions[\s\S]*payload\.runtimeMode = runtimeMode/u);
 });
 
+test("new tasks require an explicit confirmation before broader access", async () => {
+  const inbox = await readFile(join(root, "qml", "InboxView.qml"), "utf8");
+  assert.match(inbox, /property string selectedRuntimeMode: "approval-required"/u);
+  assert.match(inbox, /function resetNewTaskAccess\(\)[\s\S]*selectedRuntimeMode = "approval-required"[\s\S]*pendingRuntimeMode = ""/u);
+  assert.match(inbox, /function requestRuntimeMode\(value\)[\s\S]*if \(value === "approval-required"\)[\s\S]*pendingRuntimeMode = value/u);
+  assert.match(inbox, /function confirmBroaderRuntimeMode\(\)[\s\S]*selectedRuntimeMode = pendingRuntimeMode[\s\S]*pendingRuntimeMode = ""/u);
+  assert.match(inbox, /if \(!prompt \|\| !selectedProject \|\| pendingRuntimeMode\) return/u);
+  assert.match(inbox, /text: "Enable " \+ root\.runtimeModeLabel\(root\.pendingRuntimeMode\)/u);
+  assert.match(inbox, /text: "Keep Ask first"/u);
+  assert.match(inbox, /onClicked: root\.confirmBroaderRuntimeMode\(\)/u);
+  assert.match(inbox, /root\.creating = !root\.creating[\s\S]*root\.resetNewTaskAccess\(\)/u);
+  assert.match(inbox, /newPrompt\.text = ""[\s\S]*creating = false[\s\S]*resetNewTaskAccess\(\)/u);
+});
+
 test("live plugin startup uses a QProcess-safe launcher and waits for service injection", async () => {
   const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
   const panel = await readFile(join(root, "qml", "Panel.qml"), "utf8");
@@ -269,6 +283,20 @@ test("packaging uses an ephemeral callback handler that forwards URI arguments",
   assert.match(uninstaller, /relay-dpop-proof-key/u);
   assert.match(installer, /find "\$backup_root"[\s\S]*! -path "\$backup" -exec rm -r/u);
   assert.doesNotMatch(installer + sourceInstaller, /plugin[", ]+enable[", ]+["$]*\{?plugin_id|plugin[", ]+enable[", ]+id/u);
+});
+
+test("CI proves marketplace runtime provenance before trusting tracked bytes", async () => {
+  const packageScript = await readFile(join(root, "scripts", "package.mjs"), "utf8");
+  const repositoryValidator = await readFile(join(root, "scripts", "validate-repository.mjs"), "utf8");
+  const provenanceVerifier = await readFile(join(root, "scripts", "verify-marketplace-runtime.mjs"), "utf8");
+  const workflow = await readFile(join(root, ".github", "workflows", "ci.yml"), "utf8");
+  assert.match(packageScript, /reproducibleMainPath = "bridge\/dist\/t3-mini-bridge\.cjs"/u);
+  assert.match(packageScript, /const selfTest = run\(executablePath, \["--self-test"\]/u);
+  assert.doesNotMatch(repositoryValidator, /bin["', /]+t3-mini-bridge[^\n]*--self-test/u);
+  assert.match(repositoryValidator, /uncompressedSha256[\s\S]*createGunzip/u);
+  assert.match(provenanceVerifier, /createGunzip\(\)[\s\S]*spawnSync\("cmp"/u);
+  assert.match(provenanceVerifier, /process\.version !== `v\$\{expectedNodeVersion\}`/u);
+  assert.match(workflow, /node-version-file: \.node-version[\s\S]*pnpm package[\s\S]*pnpm verify:marketplace-runtime/u);
 });
 
 test("blocked Relay connection hides and disables task creation", async () => {

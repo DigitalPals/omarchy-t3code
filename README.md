@@ -45,7 +45,8 @@ repository.
 - New tasks and follow-ups, queue/steer-compatible turn dispatch, screenshot
   paste with removable previews, Stop, provider/model selection,
   model-advertised reasoning and service-tier controls, and runtime access
-  mode.
+  mode. New tasks start in approval-required mode; each broader access choice
+  requires a separate, clearly labeled confirmation for that task.
 - Settle/unsettle, snooze/wake, pin/unpin, rename, and capability-gated title
   regeneration using server-side T3 orchestration commands.
 - Versioned, validated stdin/stdout NDJSON between QML and the bridge. Raw T3
@@ -93,6 +94,11 @@ Development and packaging:
 - Git with submodule support.
 - Node.js 24.13.1 or newer.
 - pnpm 11.10.0.
+
+The tracked marketplace payload has a stricter reproducible builder: official
+Linux x64 Node.js `24.13.1`, pinned in `.node-version`, plus pnpm `11.10.0`.
+CI builds it from the reviewed source and fails unless the tracked decompressed
+payload is byte-for-byte identical to that fresh build.
 
 ## Security and system footprint
 

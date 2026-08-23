@@ -35,14 +35,14 @@ function runPnpm(args) {
 async function buildStandalone() {
   const configPath = join(outputRoot, "sea-config.json");
   const executablePath = join(outputRoot, "t3-mini-bridge");
-  const mainPath = join(bridgeDist, "t3-mini-bridge.cjs");
+  const reproducibleMainPath = "bridge/dist/t3-mini-bridge.cjs";
   const [major, minor] = process.versions.node.split(".").map(Number);
 
   if (major > 25 || (major === 25 && minor >= 5)) {
     await writeFile(configPath, `${JSON.stringify({
-      main: mainPath,
+      main: reproducibleMainPath,
       mainFormat: "commonjs",
-      output: executablePath,
+      output: "dist/t3-mini-bridge",
       disableExperimentalSEAWarning: true,
       useSnapshot: false,
       useCodeCache: false,
@@ -52,8 +52,8 @@ async function buildStandalone() {
   } else {
     const blobPath = join(outputRoot, "t3-mini-bridge.blob");
     await writeFile(configPath, `${JSON.stringify({
-      main: mainPath,
-      output: blobPath,
+      main: reproducibleMainPath,
+      output: "dist/t3-mini-bridge.blob",
       disableExperimentalSEAWarning: true,
       useSnapshot: false,
       useCodeCache: false,

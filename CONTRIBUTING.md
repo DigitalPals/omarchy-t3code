@@ -33,6 +33,28 @@ install, preserves its position on updates, migrates the earlier
 `io.github.omarchy-t3code` development ID, and retains at most one rollback
 copy under the registry-ignored `.backups/` directory.
 
+## Marketplace runtime provenance
+
+The marketplace executable must be produced on Linux x64 with the official
+Node version pinned in `.node-version` and the pnpm version pinned by
+`packageManager`. `scripts/package.mjs` uses repository-relative SEA input
+paths so checkout location does not affect the executable. After a source
+build, `pnpm verify:marketplace-runtime` decompresses the tracked payload
+without executing it and fails unless it byte-matches `dist/t3-mini-bridge`
+and both share the tracked SHA-256.
+
+To deliberately refresh the payload, use the pinned builder and run:
+
+```bash
+pnpm package
+pnpm bundle:marketplace
+```
+
+Review the binary and checksum changes together. CI repeats a fresh build with
+the official pinned Node distribution and enforces the same byte comparison;
+the executable self-test is only a functional metadata check, not the
+provenance proof.
+
 ## Upstream updates
 
 Use `scripts/update-t3-nightly`; never change the submodule SHA or

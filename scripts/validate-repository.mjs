@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { access, readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGunzip } from "node:zlib";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const repositoryUrl = "https://github.com/DigitalPals/omarchy-t3code";
@@ -13,6 +16,13 @@ function fail(message) {
 
 async function json(path) {
   return JSON.parse(await readFile(join(root, path), "utf8"));
+}
+
+async function uncompressedSha256(path) {
+  const hash = createHash("sha256");
+  const decompressed = createReadStream(path).pipe(createGunzip());
+  for await (const chunk of decompressed) hash.update(chunk);
+  return hash.digest("hex");
 }
 
 const [metadata, bridgeMetadata, manifest, lock] = await Promise.all([
@@ -79,6 +89,7 @@ await access(join(root, "licenses", "T3-CODE-LICENSE"));
 await access(join(root, "licenses", "BUNDLED-LICENSES.json"));
 await access(join(root, "scripts", "install-package"));
 await access(join(root, "scripts", "uninstall-package"));
+await access(join(root, "scripts", "verify-marketplace-runtime.mjs"));
 await access(join(root, "lib", "t3-mini-bridge-linux-x64.gz"));
 await access(join(root, "lib", "t3-mini-bridge-linux-x64.sha256"));
 
@@ -95,7 +106,16 @@ const archive = await stat(join(root, "lib", "t3-mini-bridge-linux-x64.gz"));
 if (archive.size < 1 || archive.size >= 100 * 1024 * 1024) {
   fail("the bundled marketplace runtime must fit GitHub's per-file limit.");
 }
+const checksumContents = await readFile(join(root, "lib", "t3-mini-bridge-linux-x64.sha256"), "utf8");
+const checksumMatch = checksumContents.match(/^([0-9a-f]{64})  t3-mini-bridge\n$/u);
+if (
+  !checksumMatch
+  || checksumMatch[1] !== await uncompressedSha256(join(root, "lib", "t3-mini-bridge-linux-x64.gz"))
+) {
+  fail("the marketplace runtime archive does not match its uncompressed checksum.");
+}
 const bundledLicenses = await json("licenses/BUNDLED-LICENSES.json");
+const marketplaceNodeVersion = (await readFile(join(root, ".node-version"), "utf8")).trim();
 const bundledNodeVersion = String(bundledLicenses.node?.version ?? "").match(/^v(\d+)\.(\d+)\.(\d+)$/u)?.slice(1).map(Number);
 if (
   !bundledNodeVersion
@@ -106,6 +126,12 @@ if (
 ) {
   fail("the marketplace runtime license inventory is incomplete.");
 }
+if (bundledLicenses.node.version !== `v${marketplaceNodeVersion}`) {
+  fail("the marketplace runtime license inventory must match the pinned Node builder.");
+}
+if (metadata.scripts?.["verify:marketplace-runtime"] !== "node scripts/verify-marketplace-runtime.mjs") {
+  fail("package.json must expose the marketplace payload provenance verifier.");
+}
 if (await readFile(join(root, "LICENSE"), "utf8") !== await readFile(join(root, "licenses", "OMARCHY-T3CODE-LICENSE"), "utf8")) {
   fail("the marketplace runtime does not contain the current project license.");
 }
@@ -114,16 +140,6 @@ if (await readFile(join(root, "upstream", "t3code", "LICENSE"), "utf8") !== awai
 }
 for (const executable of [join(root, "bin", "t3-mini-bridge"), join(root, "uninstall")]) {
   if (((await stat(executable)).mode & 0o111) === 0) fail(`${executable} must be executable.`);
-}
-if (process.platform === "linux" && process.arch === "x64") {
-  const runtime = JSON.parse(execFileSync(join(root, "bin", "t3-mini-bridge"), ["--self-test"], {
-    cwd: root,
-    encoding: "utf8",
-    timeout: 60_000,
-  }).trim());
-  if (runtime.ok !== true || runtime.bridgeVersion !== metadata.version || runtime.upstreamCommit !== lock.commit) {
-    fail("the bundled marketplace runtime does not match project metadata and the T3 pin.");
-  }
 }
 
 process.stdout.write(

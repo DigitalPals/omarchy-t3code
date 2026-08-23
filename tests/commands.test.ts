@@ -104,7 +104,7 @@ function harness(
   return { commands: new T3Commands(session, attachments), dispatched };
 }
 
-test("thread creation uses Nightly atomic bootstrap + turn command", async () => {
+test("thread creation uses Nightly atomic bootstrap + a supervised access fallback", async () => {
   const { commands, dispatched } = harness();
   const result = await commands.create({ projectId: "project-1", prompt: "Investigate the failure" });
   assert.equal(result.sequence, 1);
@@ -112,7 +112,11 @@ test("thread creation uses Nightly atomic bootstrap + turn command", async () =>
   assert.equal(command?.type, "thread.turn.start");
   assert.equal((command?.bootstrap as { createThread: { projectId: string } }).createThread.projectId, "project-1");
   assert.equal((command?.message as { text: string }).text, "Investigate the failure");
-  assert.equal(command?.runtimeMode, "full-access");
+  assert.equal(command?.runtimeMode, "approval-required");
+  assert.equal(
+    (command?.bootstrap as { createThread: { runtimeMode: string } }).createThread.runtimeMode,
+    "approval-required",
+  );
 });
 
 test("thread creation applies advertised model options and access level", async () => {

@@ -12,6 +12,10 @@ All notable user-visible changes are documented here. This project follows
   its complete license inventory.
 - Limited desktop callback registration to the active T3 Connect login window
   and restored the previous scheme owner before removing the hidden handler.
+- Made approval-required the per-task default and added an explicit warning
+  confirmation before a new task can use broader runtime access.
+- Made the marketplace SEA checkout-path-independent and added a CI-enforced
+  byte comparison between the tracked payload and a fresh pinned source build.
 
 ## [0.1.0] - 2026-08-23
 

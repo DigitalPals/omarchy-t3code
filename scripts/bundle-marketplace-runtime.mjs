@@ -23,6 +23,10 @@ const [metadata, lock] = await Promise.all([
   readFile(join(root, "package.json"), "utf8").then(JSON.parse),
   readFile(join(root, "t3-upstream.lock.json"), "utf8").then(JSON.parse),
 ]);
+const expectedNodeVersion = (await readFile(join(root, ".node-version"), "utf8")).trim();
+if (process.version !== `v${expectedNodeVersion}`) {
+  throw new Error(`Marketplace payloads must be built with Node ${expectedNodeVersion}; received ${process.version}.`);
+}
 const selfTest = spawnSync(executable, ["--self-test"], {
   cwd: root,
   encoding: "utf8",

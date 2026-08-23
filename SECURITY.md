@@ -92,11 +92,17 @@ runtime notice, and all dependency notices discovered from the bundle source
 map; they exclude the upstream repository, source maps, tests, credentials,
 and development files.
 
-The standalone executable is built for the installation machine/CI target and
-self-tests its embedded upstream commit before packaging. The root marketplace
-plugin carries the x86-64 executable as a compressed local payload plus the
-uncompressed SHA-256; its launcher verifies that checksum before atomically
-placing an executable under the checkout's ignored, owner-written
+The standalone executable is derived from the pinned source with the official
+Linux x64 Node version in `.node-version`, pnpm from `packageManager`, the
+locked dependency graph, and repository-relative SEA input paths. CI performs
+a fresh build, decompresses the tracked marketplace payload without executing
+it, and fails unless the two executables are byte-for-byte identical and share
+the tracked SHA-256. The embedded self-test remains a functional version/pin
+check; it is not used as the provenance proof.
+
+The root marketplace plugin carries that x86-64 executable as a compressed
+local payload. Its launcher verifies the CI-bound uncompressed checksum before
+atomically placing an executable under the checkout's ignored, owner-written
 `lib/.runtime/` directory. It downloads nothing and requests no elevated
 privileges. The repository and release package both carry the Node, T3, and
 bundled dependency license inventory. Archive metadata and gzip headers are

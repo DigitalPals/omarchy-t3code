@@ -11,6 +11,7 @@ git submodule update --init upstream/t3code
 pnpm install --frozen-lockfile
 pnpm check
 pnpm package
+pnpm verify:marketplace-runtime
 dist/plugin/lib/t3-mini-bridge --self-test
 scripts/check-t3-nightly
 pnpm install:plugin
