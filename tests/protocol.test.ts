@@ -16,9 +16,10 @@ test("protocol decoder validates envelopes and operation payloads", () => {
     protocolVersion: 1,
     requestId: "request-1",
     type: "thread.snooze",
-    payload: { threadId: "thread-1", until: "2026-08-23T00:00:00.000Z" },
+    payload: { environmentId: "computer-2", threadId: "thread-1", until: "2026-08-23T00:00:00.000Z" },
   }));
   assert.equal(decoded.requestId, "request-1");
+  assert.equal(decoded.payload.environmentId, "computer-2");
   const option = decodeRequestLine(JSON.stringify({
     protocolVersion: 1,
     requestId: "option-1",
@@ -60,6 +61,7 @@ test("protocol decoder validates envelopes and operation payloads", () => {
   assert.throws(() => decodeRequestLine("not json"), ProtocolDecodeError);
   assert.throws(() => decodeRequestLine(JSON.stringify({ protocolVersion: 2, requestId: "x", type: "bridge.ping" })), /protocolVersion/u);
   assert.throws(() => decodeRequestLine(JSON.stringify({ protocolVersion: 1, requestId: "x", type: "thread.open", payload: {} })), /threadId/u);
+  assert.throws(() => decodeRequestLine(JSON.stringify({ protocolVersion: 1, requestId: "x", type: "thread.open", payload: { environmentId: "", threadId: "t" } })), /environmentId/u);
   assert.throws(() => decodeRequestLine(JSON.stringify({ protocolVersion: 1, requestId: "x", type: "approval.respond", payload: { threadId: "t", requestId: "a", decision: "yes" } })), /decision/u);
   assert.throws(() => decodeRequestLine(JSON.stringify({ protocolVersion: 1, requestId: "x", type: "thread.model.option.set", payload: { threadId: "t", optionId: "reasoningEffort", value: "" } })), /value/u);
   assert.throws(() => decodeRequestLine(JSON.stringify({ protocolVersion: 1, requestId: "x", type: "thread.create", payload: { projectId: "p", prompt: "go", modelOptions: [{ id: "reasoningEffort", value: "high" }, { id: "reasoningEffort", value: "low" }] } })), /duplicate/u);
@@ -96,7 +98,8 @@ test("NDJSON bridge correlates concurrent responses and survives malformed input
     throw new Error("Timed out waiting for bridge output.");
   }
 
-  await waitFor((message) => message.event === "bridge.ready");
+  const ready = await waitFor((message) => message.event === "bridge.ready");
+  assert.equal((ready.payload as { allComputersEnvironmentId: string }).allComputersEnvironmentId, "__all_computers__");
   child.stdin.write("{bad json\n");
   child.stdin.write(`${JSON.stringify({ protocolVersion: 1, requestId: "one", type: "bridge.ping", payload: {} })}\n`);
   child.stdin.write(`${JSON.stringify({ protocolVersion: 1, requestId: "two", type: "auth.status", payload: {} })}\n`);

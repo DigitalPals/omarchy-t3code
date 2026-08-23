@@ -101,7 +101,7 @@ function harness(
       return { sequence: dispatched.length };
     },
   } as unknown as T3EnvironmentSession;
-  return { commands: new T3Commands(session, attachments), dispatched };
+  return { commands: new T3Commands(() => session, attachments), dispatched, session };
 }
 
 test("thread creation uses Nightly atomic bootstrap + a supervised access fallback", async () => {
@@ -194,6 +194,22 @@ test("lifecycle, turns, approvals, and input map to real orchestration commands"
   assert.equal(dispatched[5]?.reason, "user");
   assert.equal(dispatched[8]?.title, "Renamed");
   assert.equal(dispatched[9]?.regenerateTitle, true);
+});
+
+test("thread commands route to the computer named in the payload", async () => {
+  const primary = harness();
+  const remote = harness();
+  const routed: Array<string | undefined> = [];
+  const commands = new T3Commands((environmentId) => {
+    routed.push(environmentId);
+    return environmentId === "computer-2" ? remote.session : primary.session;
+  });
+
+  await commands.pin({ environmentId: "computer-2", threadId: "thread-1" });
+
+  assert.deepEqual(routed, ["computer-2"]);
+  assert.equal(primary.dispatched.length, 0);
+  assert.equal(remote.dispatched[0]?.type, "thread.pin");
 });
 
 test("unsupported server capabilities reject lifecycle mutation locally", async () => {

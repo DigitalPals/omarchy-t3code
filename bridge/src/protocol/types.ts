@@ -1,4 +1,5 @@
 export const PROTOCOL_VERSION = 1 as const;
+export const ALL_COMPUTERS_ENVIRONMENT_ID = "__all_computers__" as const;
 
 export type AuthPhase = "signedOut" | "signingIn" | "signedIn" | "error";
 export interface AuthStatusDto {
@@ -68,6 +69,7 @@ export type ThreadPhase =
 export type InboxSection = "pinned" | "active" | "snoozed" | "settled";
 
 export interface ThreadSummaryDto {
+  environmentId: string;
   id: string;
   projectId: string;
   project: string;

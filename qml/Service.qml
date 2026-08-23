@@ -17,16 +17,21 @@ Item {
   property string connectionDetail: ""
   property var environments: []
   property string selectedEnvironmentId: ""
+  property string inboxScopeId: ""
+  property bool allComputersActive: false
+  property bool allComputersOpening: false
   property var inbox: ({ pinned: [], active: [], snoozed: [], settled: [], projects: [], models: [] })
   property var thread: null
   property var models: []
   property string lastError: ""
   property string openThreadId: ""
+  property string openThreadEnvironmentId: ""
   property bool openingThread: false
   property bool threadSubscriptionActive: false
   property int requestSerial: 0
   property var callbacks: ({})
   property var queuedWrites: []
+  property string allComputersEnvironmentId: ""
 
   signal authCompleted()
   signal navigateThread(string threadId)
@@ -34,6 +39,9 @@ Item {
 
   readonly property string pluginDir: manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : ""
   readonly property string bridgePath: pluginDir + "/bin/t3-mini-bridge"
+  readonly property bool allComputersAvailable: allComputersEnvironmentId.length > 0 && environments.length > 2
+  readonly property bool showingAllComputers: allComputersEnvironmentId.length > 0
+    && inboxScopeId === allComputersEnvironmentId
   readonly property int attentionCount: countAttention()
 
   function countAttention() {
@@ -73,18 +81,24 @@ Item {
     var pending = callbacks
     callbacks = ({})
     queuedWrites = []
+    allComputersActive = false
+    allComputersOpening = false
     for (var key in pending)
       pending[key](false, { code: "BRIDGE_RESTARTED", message: "The T3 bridge restarted; live state will be restored automatically.", retryable: true })
   }
 
   function resumeOpenThread() {
-    if (!openThreadId || openingThread || threadSubscriptionActive || connectionPhase !== "connected") return
+    if (!openThreadId || !openThreadEnvironmentId || openingThread || threadSubscriptionActive || connectionPhase !== "connected") return
     openingThread = true
-    request("thread.open", { threadId: openThreadId }, function(ok, result) {
-      if (ok) return
+    request("thread.open", { environmentId: openThreadEnvironmentId, threadId: openThreadId }, function(ok, result) {
+      if (ok) {
+        models = result.models || models
+        return
+      }
       openingThread = false
       lastError = String(result && result.message ? result.message : "The thread could not be opened.")
       openThreadId = ""
+      openThreadEnvironmentId = ""
       threadSubscriptionActive = false
       thread = null
       navigateInbox()
@@ -106,6 +120,7 @@ Item {
     var payload = message.payload || {}
     switch (message.event) {
       case "bridge.ready":
+        allComputersEnvironmentId = String(payload.allComputersEnvironmentId || "")
         ready = true
         flushWrites()
         break
@@ -116,6 +131,10 @@ Item {
         authDetail = String(payload.detail || "")
         if (authPhase === "signedOut") {
           openThreadId = ""
+          openThreadEnvironmentId = ""
+          inboxScopeId = ""
+          allComputersActive = false
+          allComputersOpening = false
           openingThread = false
           threadSubscriptionActive = false
           thread = null
@@ -134,26 +153,40 @@ Item {
         connectionPhase = String(payload.phase || "disconnected")
         connectionDetail = String(payload.detail || "")
         selectedEnvironmentId = String(payload.environmentId || selectedEnvironmentId)
+        if (!inboxScopeId) inboxScopeId = selectedEnvironmentId
         if (connectionPhase !== "connected") {
           openingThread = false
           threadSubscriptionActive = false
         }
+        if (connectionPhase === "connected") restoreAllComputers()
         break
       case "environment.changed":
         environments = payload.environments || []
         selectedEnvironmentId = String(payload.selected || "")
+        if (!inboxScopeId) inboxScopeId = selectedEnvironmentId
+        if (showingAllComputers && !allComputersAvailable) {
+          if (selectedEnvironmentId) selectInboxScope(selectedEnvironmentId)
+          else {
+            inboxScopeId = ""
+            allComputersActive = false
+            allComputersOpening = false
+          }
+        }
+        restoreAllComputers()
         break
       case "inbox.changed":
+        if (!inboxScopeId || String(payload.environmentId || "") !== inboxScopeId) break
         inbox = payload
         models = payload.models || []
+        if (String(payload.environmentId || "") === allComputersEnvironmentId) allComputersActive = true
         resumeOpenThread()
         break
       case "thread.snapshot":
+        if (!payload.id || String(payload.id) !== openThreadId
+            || String(payload.environmentId || "") !== openThreadEnvironmentId) break
         thread = payload
-        if (payload.id && String(payload.id) === openThreadId) {
-          openingThread = false
-          threadSubscriptionActive = true
-        }
+        openingThread = false
+        threadSubscriptionActive = true
         break
       case "error":
         lastError = String(payload.message || "T3 bridge error")
@@ -173,22 +206,65 @@ Item {
   function startLogin() { request("auth.login", {}) }
   function logout() { request("auth.logout", {}, function() { navigateInbox() }) }
   function refreshEnvironments() { request("environment.list", {}) }
-  function selectEnvironment(environmentId) { request("environment.select", { environmentId: environmentId }) }
-  function refreshInbox() { request("inbox.get", {}, function(ok, payload) { if (ok) { inbox = payload; models = payload.models || [] } }) }
+  function restoreAllComputers() {
+    if (!showingAllComputers || allComputersActive || allComputersOpening
+        || !allComputersAvailable || connectionPhase !== "connected") return
+    selectInboxScope(allComputersEnvironmentId)
+  }
+  function selectInboxScope(environmentId) {
+    var requested = String(environmentId)
+    if (requested === allComputersEnvironmentId && !allComputersAvailable) return
+    inboxScopeId = requested
+    if (requested === allComputersEnvironmentId) {
+      allComputersOpening = true
+      allComputersActive = false
+    } else {
+      allComputersOpening = false
+      allComputersActive = false
+    }
+    request("environment.select", { environmentId: requested }, function(ok, result) {
+      allComputersOpening = false
+      if (!ok) {
+        inboxScopeId = selectedEnvironmentId
+        allComputersActive = false
+        return
+      }
+      inboxScopeId = String(result.selected || requested)
+      allComputersActive = inboxScopeId === allComputersEnvironmentId
+      if (result.inbox) {
+        inbox = result.inbox
+        models = result.inbox.models || []
+      }
+      resumeOpenThread()
+    })
+  }
+  function refreshInbox() {
+    if (showingAllComputers) {
+      allComputersActive = false
+      selectInboxScope(allComputersEnvironmentId)
+      return
+    }
+    request("inbox.get", {}, function(ok, payload) { if (ok) { inbox = payload; models = payload.models || [] } })
+  }
   function refreshConnection() {
+    if (showingAllComputers && connectionPhase === "connected") {
+      refreshInbox()
+      return
+    }
     if (connectionPhase === "connected") {
       refreshInbox()
       return
     }
     if (selectedEnvironmentId) {
-      selectEnvironment(selectedEnvironmentId)
+      selectInboxScope(selectedEnvironmentId)
       return
     }
     refreshEnvironments()
   }
-  function openThread(threadId) {
+  function openThread(environmentId, threadId) {
     thread = null
     openThreadId = String(threadId)
+    openThreadEnvironmentId = String(environmentId)
     openingThread = false
     threadSubscriptionActive = false
     navigateThread(threadId)
@@ -196,6 +272,7 @@ Item {
   }
   function closeThread() {
     openThreadId = ""
+    openThreadEnvironmentId = ""
     openingThread = false
     threadSubscriptionActive = false
     request("thread.close", {})
@@ -209,46 +286,46 @@ Item {
     if (modelOptions && modelOptions.length > 0) payload.modelOptions = modelOptions
     if (runtimeMode) payload.runtimeMode = runtimeMode
     request("thread.create", payload, function(ok, result) {
-      if (ok && result && result.threadId) openThread(String(result.threadId))
+      if (ok && result && result.threadId) openThread(selectedEnvironmentId, String(result.threadId))
     })
   }
-  function pasteScreenshot(threadId, callback) {
-    request("attachment.clipboard.read", { threadId: threadId }, callback)
+  function pasteScreenshot(environmentId, threadId, callback) {
+    request("attachment.clipboard.read", { environmentId: environmentId, threadId: threadId }, callback)
   }
-  function discardAttachment(threadId, attachmentId) {
-    request("attachment.discard", { threadId: threadId, attachmentId: attachmentId })
+  function discardAttachment(environmentId, threadId, attachmentId) {
+    request("attachment.discard", { environmentId: environmentId, threadId: threadId, attachmentId: attachmentId })
   }
-  function send(threadId, text, attachmentIds, callback) {
-    var payload = { threadId: threadId, text: text }
+  function send(environmentId, threadId, text, attachmentIds, callback) {
+    var payload = { environmentId: environmentId, threadId: threadId, text: text }
     if (attachmentIds && attachmentIds.length > 0) payload.attachmentIds = attachmentIds
     request("thread.send", payload, callback)
   }
-  function interrupt(threadId) { request("thread.interrupt", { threadId: threadId }) }
-  function settle(threadId) { request("thread.settle", { threadId: threadId }) }
-  function unsettle(threadId) { request("thread.unsettle", { threadId: threadId }) }
-  function snooze(threadId, until) { request("thread.snooze", { threadId: threadId, until: until }) }
-  function unsnooze(threadId) { request("thread.unsnooze", { threadId: threadId }) }
-  function pin(threadId) { request("thread.pin", { threadId: threadId }) }
-  function unpin(threadId) { request("thread.unpin", { threadId: threadId }) }
-  function setModel(threadId, providerInstanceId, model) {
-    request("thread.model.set", { threadId: threadId, providerInstanceId: providerInstanceId, model: model })
+  function interrupt(environmentId, threadId) { request("thread.interrupt", { environmentId: environmentId, threadId: threadId }) }
+  function settle(environmentId, threadId) { request("thread.settle", { environmentId: environmentId, threadId: threadId }) }
+  function unsettle(environmentId, threadId) { request("thread.unsettle", { environmentId: environmentId, threadId: threadId }) }
+  function snooze(environmentId, threadId, until) { request("thread.snooze", { environmentId: environmentId, threadId: threadId, until: until }) }
+  function unsnooze(environmentId, threadId) { request("thread.unsnooze", { environmentId: environmentId, threadId: threadId }) }
+  function pin(environmentId, threadId) { request("thread.pin", { environmentId: environmentId, threadId: threadId }) }
+  function unpin(environmentId, threadId) { request("thread.unpin", { environmentId: environmentId, threadId: threadId }) }
+  function setModel(environmentId, threadId, providerInstanceId, model) {
+    request("thread.model.set", { environmentId: environmentId, threadId: threadId, providerInstanceId: providerInstanceId, model: model })
   }
-  function setModelOption(threadId, optionId, value) {
-    request("thread.model.option.set", { threadId: threadId, optionId: optionId, value: value })
+  function setModelOption(environmentId, threadId, optionId, value) {
+    request("thread.model.option.set", { environmentId: environmentId, threadId: threadId, optionId: optionId, value: value })
   }
-  function rename(threadId, title) { request("thread.rename", { threadId: threadId, title: title }) }
-  function regenerateTitle(threadId) { request("thread.title.regenerate", { threadId: threadId }) }
-  function setRuntime(threadId, runtimeMode) {
-    request("thread.runtime.set", { threadId: threadId, runtimeMode: runtimeMode })
+  function rename(environmentId, threadId, title) { request("thread.rename", { environmentId: environmentId, threadId: threadId, title: title }) }
+  function regenerateTitle(environmentId, threadId) { request("thread.title.regenerate", { environmentId: environmentId, threadId: threadId }) }
+  function setRuntime(environmentId, threadId, runtimeMode) {
+    request("thread.runtime.set", { environmentId: environmentId, threadId: threadId, runtimeMode: runtimeMode })
   }
-  function setInteraction(threadId, interactionMode) {
-    request("thread.interaction.set", { threadId: threadId, interactionMode: interactionMode })
+  function setInteraction(environmentId, threadId, interactionMode) {
+    request("thread.interaction.set", { environmentId: environmentId, threadId: threadId, interactionMode: interactionMode })
   }
-  function respondApproval(threadId, requestId, decision) {
-    request("approval.respond", { threadId: threadId, requestId: requestId, decision: decision })
+  function respondApproval(environmentId, threadId, requestId, decision) {
+    request("approval.respond", { environmentId: environmentId, threadId: threadId, requestId: requestId, decision: decision })
   }
-  function respondInput(threadId, requestId, answers) {
-    request("input.respond", { threadId: threadId, requestId: requestId, answers: answers })
+  function respondInput(environmentId, threadId, requestId, answers) {
+    request("input.respond", { environmentId: environmentId, threadId: threadId, requestId: requestId, answers: answers })
   }
 
   Process {
@@ -263,6 +340,8 @@ Item {
     onExited: {
       root.ready = false
       root.connectionPhase = "disconnected"
+      root.allComputersActive = false
+      root.allComputersOpening = false
       root.openingThread = false
       root.threadSubscriptionActive = false
       root.failPendingRequests()

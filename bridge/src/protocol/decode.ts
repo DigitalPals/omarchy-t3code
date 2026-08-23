@@ -107,6 +107,14 @@ function optionalAttachmentIds(payload: Record<string, unknown>): string[] {
 }
 
 function validatePayload(type: RequestType, payload: Record<string, unknown>): void {
+  if (
+    type.startsWith("thread.") ||
+    type.startsWith("attachment.") ||
+    type === "approval.respond" ||
+    type === "input.respond"
+  ) {
+    if (payload.environmentId !== undefined) requiredString(payload, "environmentId", 256);
+  }
   switch (type) {
     case "attachment.clipboard.read":
       requiredString(payload, "threadId", 256);

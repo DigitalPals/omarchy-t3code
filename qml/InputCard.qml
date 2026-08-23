@@ -8,6 +8,7 @@ import "AttentionState.js" as AttentionState
 BorderSurface {
   id: root
   required property var inputData
+  required property string environmentId
   required property string threadId
   required property var service
   property var answers: ({})
@@ -198,7 +199,7 @@ BorderSurface {
       accent: root.inputColor
       active: true
       enabled: root.complete()
-      onClicked: root.service.respondInput(root.threadId, String(root.inputData.requestId), root.answers)
+      onClicked: root.service.respondInput(root.environmentId, root.threadId, String(root.inputData.requestId), root.answers)
     }
   }
 }

@@ -38,7 +38,7 @@ BorderSurface {
     attachments = []
     attachmentError = ""
     sending = true
-    service.send(String(threadData.id), value, attachmentIds, function(ok, result) {
+    service.send(String(threadData.environmentId), String(threadData.id), value, attachmentIds, function(ok, result) {
       root.sending = false
       if (ok) return
       root.attachments = sentAttachments.concat(root.attachments)
@@ -55,7 +55,7 @@ BorderSurface {
     }
     pastingImage = true
     attachmentError = ""
-    service.pasteScreenshot(String(threadData.id), function(ok, result) {
+    service.pasteScreenshot(String(threadData.environmentId), String(threadData.id), function(ok, result) {
       root.pastingImage = false
       if (!ok) {
         root.attachmentError = String(result && result.message ? result.message : "The screenshot could not be pasted.")
@@ -72,7 +72,7 @@ BorderSurface {
     next.splice(index, 1)
     attachments = next
     attachmentError = ""
-    service.discardAttachment(String(threadData.id), String(attachment.id))
+    service.discardAttachment(String(threadData.environmentId), String(threadData.id), String(attachment.id))
   }
 
   function handlePasteShortcut(event) {
@@ -84,7 +84,7 @@ BorderSurface {
 
   function discardAttachments() {
     for (var i = 0; i < attachments.length; i++)
-      service.discardAttachment(String(threadData.id), String(attachments[i].id))
+      service.discardAttachment(String(threadData.environmentId), String(threadData.id), String(attachments[i].id))
   }
 
   width: parent ? parent.width : implicitWidth
@@ -206,7 +206,7 @@ BorderSurface {
         value: root.selectedModel
         onChanged: function(value) {
           var split = value.split("\u001f")
-          root.service.setModel(String(root.threadData.id), split[0], split[1])
+          root.service.setModel(String(root.threadData.environmentId), String(root.threadData.id), split[0], split[1])
         }
       }
       ModelOptionsPicker {
@@ -216,7 +216,7 @@ BorderSurface {
         triggerFontSize: Style.font.caption
         descriptors: root.threadData.modelOptions || []
         onChanged: function(optionId, value) {
-          root.service.setModelOption(String(root.threadData.id), optionId, value)
+          root.service.setModelOption(String(root.threadData.environmentId), String(root.threadData.id), optionId, value)
         }
       }
       ModelDropdown {
@@ -232,7 +232,9 @@ BorderSurface {
           { value: "full-access", label: "Full access" }
         ]
         value: String(root.threadData.runtimeMode)
-        onChanged: function(value) { root.service.setRuntime(String(root.threadData.id), value) }
+        onChanged: function(value) {
+          root.service.setRuntime(String(root.threadData.environmentId), String(root.threadData.id), value)
+        }
       }
       Item {
         width: Math.max(0, actionRow.selectorCapacity - actionRow.selectorWidth)
@@ -259,7 +261,7 @@ BorderSurface {
         foreground: Color.urgent
         horizontalPadding: Style.spacing.sm
         verticalPadding: Style.spacing.sm
-        onClicked: root.service.interrupt(String(root.threadData.id))
+        onClicked: root.service.interrupt(String(root.threadData.environmentId), String(root.threadData.id))
       }
       Button {
         id: sendButton

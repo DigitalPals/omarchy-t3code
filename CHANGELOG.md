@@ -5,6 +5,11 @@ All notable user-visible changes are documented here. This project follows
 
 ## [Unreleased]
 
+### Added
+
+- Added an All computers Inbox for accounts with more than two linked
+  computers, with every thread action routed to its source computer.
+
 ### Changed
 
 - Made the repository root a directly installable Omarchy marketplace plugin,

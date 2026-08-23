@@ -26,6 +26,8 @@ Item {
   function environmentOptions() {
     var result = []
     var values = root.service.environments || []
+    if (root.service.allComputersAvailable)
+      result.push({ value: root.service.allComputersEnvironmentId, label: "All computers" })
     for (var i = 0; i < values.length; i++)
       result.push({ value: String(values[i].id), label: String(values[i].label) + (values[i].status ? " · " + values[i].status : "") })
     return result
@@ -180,11 +182,15 @@ Item {
     resetNewTaskAccess()
   }
 
-  function pin(threadId, pinned) { pinned ? root.service.unpin(threadId) : root.service.pin(threadId) }
-  function settle(threadId, settled) { settled ? root.service.unsettle(threadId) : root.service.settle(threadId) }
-  function snooze(threadId, snoozed) {
-    if (snoozed) root.service.unsnooze(threadId)
-    else root.service.snooze(threadId, new Date(Date.now() + 86400000).toISOString())
+  function pin(environmentId, threadId, pinned) {
+    pinned ? root.service.unpin(environmentId, threadId) : root.service.pin(environmentId, threadId)
+  }
+  function settle(environmentId, threadId, settled) {
+    settled ? root.service.unsettle(environmentId, threadId) : root.service.settle(environmentId, threadId)
+  }
+  function snooze(environmentId, threadId, snoozed) {
+    if (snoozed) root.service.unsnooze(environmentId, threadId)
+    else root.service.snooze(environmentId, threadId, new Date(Date.now() + 86400000).toISOString())
   }
 
   Connections {
@@ -248,8 +254,12 @@ Item {
       width: parent.width
       showLabel: false
       options: root.environmentOptions()
-      value: root.service.selectedEnvironmentId
-      onChanged: function(value) { root.service.selectEnvironment(value) }
+      value: root.service.inboxScopeId
+      onChanged: function(value) {
+        root.creating = false
+        root.resetNewTaskAccess()
+        root.service.selectInboxScope(value)
+      }
     }
 
     BorderSurface {
@@ -277,7 +287,9 @@ Item {
       Text {
         width: parent.width - (newButton.visible ? newButton.implicitWidth + parent.spacing : 0)
         text: root.service.connectionPhase === "connected"
-          ? "Connected" + (root.formattedInboxUpdatedAt ? " · updated " + root.formattedInboxUpdatedAt : "")
+          ? (root.service.showingAllComputers
+            ? String((root.service.environments || []).length) + " computers"
+            : "Connected") + (root.formattedInboxUpdatedAt ? " · updated " + root.formattedInboxUpdatedAt : "")
           : (root.service.connectionPhase === "blocked"
             ? "Connection blocked"
           : String(root.service.connectionPhase) + (root.service.connectionDetail ? " · " + root.service.connectionDetail : "")
@@ -293,8 +305,9 @@ Item {
         iconText: root.creating ? "󰅖" : "󰐕"
         text: root.creating ? "Cancel" : "New task"
         visible: root.service.connectionPhase === "connected"
-        enabled: root.service.connectionPhase === "connected"
+        enabled: root.service.connectionPhase === "connected" && !root.service.showingAllComputers
         active: enabled && !root.creating
+        tooltipText: root.service.showingAllComputers ? "Select a computer to create a task" : ""
         onClicked: {
           root.creating = !root.creating
           root.resetNewTaskAccess()
@@ -304,7 +317,7 @@ Item {
     }
 
     BorderSurface {
-      visible: root.creating && root.service.connectionPhase === "connected"
+      visible: root.creating && root.service.connectionPhase === "connected" && !root.service.showingAllComputers
       width: parent.width
       height: createColumn.implicitHeight + Style.spacing.rowPaddingX * 2
       radius: Style.cornerRadius
@@ -475,36 +488,44 @@ Item {
         InboxSection {
           title: "PINNED"
           items: root.service.inbox.pinned || []
-          onThreadActivated: function(threadId) { root.service.openThread(threadId) }
-          onPinRequested: function(threadId, pinned) { root.pin(threadId, pinned) }
-          onSettleRequested: function(threadId, settled) { root.settle(threadId, settled) }
-          onSnoozeRequested: function(threadId, snoozed) { root.snooze(threadId, snoozed) }
+          environments: root.service.environments
+          showEnvironment: root.service.showingAllComputers
+          onThreadActivated: function(environmentId, threadId) { root.service.openThread(environmentId, threadId) }
+          onPinRequested: function(environmentId, threadId, pinned) { root.pin(environmentId, threadId, pinned) }
+          onSettleRequested: function(environmentId, threadId, settled) { root.settle(environmentId, threadId, settled) }
+          onSnoozeRequested: function(environmentId, threadId, snoozed) { root.snooze(environmentId, threadId, snoozed) }
         }
         InboxSection {
           title: "INBOX / ACTIVE"
           items: root.service.inbox.active || []
-          onThreadActivated: function(threadId) { root.service.openThread(threadId) }
-          onPinRequested: function(threadId, pinned) { root.pin(threadId, pinned) }
-          onSettleRequested: function(threadId, settled) { root.settle(threadId, settled) }
-          onSnoozeRequested: function(threadId, snoozed) { root.snooze(threadId, snoozed) }
+          environments: root.service.environments
+          showEnvironment: root.service.showingAllComputers
+          onThreadActivated: function(environmentId, threadId) { root.service.openThread(environmentId, threadId) }
+          onPinRequested: function(environmentId, threadId, pinned) { root.pin(environmentId, threadId, pinned) }
+          onSettleRequested: function(environmentId, threadId, settled) { root.settle(environmentId, threadId, settled) }
+          onSnoozeRequested: function(environmentId, threadId, snoozed) { root.snooze(environmentId, threadId, snoozed) }
         }
         InboxSection {
           title: "SNOOZED"
           items: root.service.inbox.snoozed || []
           initiallyExpanded: false
-          onThreadActivated: function(threadId) { root.service.openThread(threadId) }
-          onPinRequested: function(threadId, pinned) { root.pin(threadId, pinned) }
-          onSettleRequested: function(threadId, settled) { root.settle(threadId, settled) }
-          onSnoozeRequested: function(threadId, snoozed) { root.snooze(threadId, snoozed) }
+          environments: root.service.environments
+          showEnvironment: root.service.showingAllComputers
+          onThreadActivated: function(environmentId, threadId) { root.service.openThread(environmentId, threadId) }
+          onPinRequested: function(environmentId, threadId, pinned) { root.pin(environmentId, threadId, pinned) }
+          onSettleRequested: function(environmentId, threadId, settled) { root.settle(environmentId, threadId, settled) }
+          onSnoozeRequested: function(environmentId, threadId, snoozed) { root.snooze(environmentId, threadId, snoozed) }
         }
         InboxSection {
           title: "SETTLED"
           items: root.service.inbox.settled || []
           initiallyExpanded: false
-          onThreadActivated: function(threadId) { root.service.openThread(threadId) }
-          onPinRequested: function(threadId, pinned) { root.pin(threadId, pinned) }
-          onSettleRequested: function(threadId, settled) { root.settle(threadId, settled) }
-          onSnoozeRequested: function(threadId, snoozed) { root.snooze(threadId, snoozed) }
+          environments: root.service.environments
+          showEnvironment: root.service.showingAllComputers
+          onThreadActivated: function(environmentId, threadId) { root.service.openThread(environmentId, threadId) }
+          onPinRequested: function(environmentId, threadId, pinned) { root.pin(environmentId, threadId, pinned) }
+          onSettleRequested: function(environmentId, threadId, settled) { root.settle(environmentId, threadId, settled) }
+          onSnoozeRequested: function(environmentId, threadId, snoozed) { root.snooze(environmentId, threadId, snoozed) }
         }
 
         Text {

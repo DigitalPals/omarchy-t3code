@@ -5,6 +5,7 @@ import qs.Ui
 BorderSurface {
   id: root
   required property var approvalData
+  required property string environmentId
   required property string threadId
   required property var service
 
@@ -41,9 +42,9 @@ BorderSurface {
     Flow {
       width: parent.width
       spacing: Style.spacing.md
-      Button { text: "Decline"; foreground: Color.urgent; onClicked: root.service.respondApproval(root.threadId, String(root.approvalData.requestId), "decline") }
-      Button { text: "Allow session"; onClicked: root.service.respondApproval(root.threadId, String(root.approvalData.requestId), "acceptForSession") }
-      Button { text: "Approve"; active: true; onClicked: root.service.respondApproval(root.threadId, String(root.approvalData.requestId), "accept") }
+      Button { text: "Decline"; foreground: Color.urgent; onClicked: root.service.respondApproval(root.environmentId, root.threadId, String(root.approvalData.requestId), "decline") }
+      Button { text: "Allow session"; onClicked: root.service.respondApproval(root.environmentId, root.threadId, String(root.approvalData.requestId), "acceptForSession") }
+      Button { text: "Approve"; active: true; onClicked: root.service.respondApproval(root.environmentId, root.threadId, String(root.approvalData.requestId), "accept") }
     }
   }
 }

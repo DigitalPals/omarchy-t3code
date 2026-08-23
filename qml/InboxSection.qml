@@ -8,13 +8,22 @@ Column {
   id: root
   required property string title
   required property var items
+  property var environments: []
+  property bool showEnvironment: false
   property bool initiallyExpanded: true
   property bool expanded: initiallyExpanded
 
-  signal threadActivated(string threadId)
-  signal pinRequested(string threadId, bool pinned)
-  signal settleRequested(string threadId, bool settled)
-  signal snoozeRequested(string threadId, bool snoozed)
+  signal threadActivated(string environmentId, string threadId)
+  signal pinRequested(string environmentId, string threadId, bool pinned)
+  signal settleRequested(string environmentId, string threadId, bool settled)
+  signal snoozeRequested(string environmentId, string threadId, bool snoozed)
+
+  function environmentLabel(environmentId) {
+    var values = root.environments || []
+    for (var i = 0; i < values.length; i++)
+      if (String(values[i].id) === String(environmentId)) return String(values[i].label)
+    return "Unknown computer"
+  }
 
   width: parent ? parent.width : implicitWidth
   spacing: Style.spacing.md
@@ -41,10 +50,11 @@ Column {
       ThreadRow {
         required property var modelData
         threadData: modelData
-        onActivated: function(threadId) { root.threadActivated(threadId) }
-        onPinRequested: function(threadId, pinned) { root.pinRequested(threadId, pinned) }
-        onSettleRequested: function(threadId, settled) { root.settleRequested(threadId, settled) }
-        onSnoozeRequested: function(threadId, snoozed) { root.snoozeRequested(threadId, snoozed) }
+        environmentLabel: root.showEnvironment ? root.environmentLabel(modelData.environmentId) : ""
+        onActivated: function(threadId) { root.threadActivated(String(modelData.environmentId), threadId) }
+        onPinRequested: function(threadId, pinned) { root.pinRequested(String(modelData.environmentId), threadId, pinned) }
+        onSettleRequested: function(threadId, settled) { root.settleRequested(String(modelData.environmentId), threadId, settled) }
+        onSnoozeRequested: function(threadId, snoozed) { root.snoozeRequested(String(modelData.environmentId), threadId, snoozed) }
       }
     }
   }
