@@ -1,0 +1,26 @@
+# Changelog
+
+All notable user-visible changes are documented here. This project follows
+[Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-08-23
+
+### Added
+
+- Native Clerk browser sign-in with secret-authenticated callback handoff.
+- T3 Inbox, streamed threads, lifecycle commands, model controls, approvals,
+  user input, and screenshot attachments in an Omarchy bar modal.
+- Exact T3 Nightly compatibility pin, standalone Linux packaging, license
+  inventory, checksum, installer, uninstaller, and legacy-ID migration.
+
+### Security
+
+- Assistant Markdown image and raw-HTML neutralization with an external-link
+  scheme allowlist.
+- Secret-Service-backed client, callback, and DPoP material; inherited-pipe
+  IPC; ordered requests; and non-replaying bridge restart behavior.
+
+[Unreleased]: https://github.com/DigitalPals/omarchy-t3code/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/DigitalPals/omarchy-t3code/releases/tag/v0.1.0

@@ -1,0 +1,9 @@
+node_modules/
+bridge/dist/
+dist/
+.cache/
+*.log
+*.tgz
+.env
+.env.*
+!.env.example

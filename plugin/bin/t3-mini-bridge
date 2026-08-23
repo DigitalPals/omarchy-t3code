@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+plugin_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+
+if [ -x "$plugin_root/lib/t3-mini-bridge" ]; then
+  exec "$plugin_root/lib/t3-mini-bridge" "$@"
+fi
+
+if command -v node >/dev/null 2>&1 && [ -f "$plugin_root/lib/t3-mini-bridge.mjs" ]; then
+  exec node "$plugin_root/lib/t3-mini-bridge.mjs" "$@"
+fi
+
+echo "T3 mini bridge is missing. Reinstall the Omarchy T3 Code plugin." >&2
+exit 127
