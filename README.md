@@ -37,7 +37,7 @@ repository.
   template, a secret-authenticated loopback callback handoff, automatic panel
   return, restart persistence, and logout.
 - T3 Connect computer discovery, selection, remembered preference, a unified
-  All computers Inbox when more than two are linked, and reconnect with
+  All computers Inbox when multiple computers are linked, and reconnect with
   bounded exponential backoff.
 - Nightly Inbox semantics for pinned, active, snoozed, and settled threads,
   including Working, Ready, Input, Approval, and failure attention state.

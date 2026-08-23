@@ -258,7 +258,7 @@ test("new-thread composer mirrors model options and access controls from replies
   assert.match(service, /function createThread\([^)]*modelOptions, runtimeMode\)[\s\S]*payload\.modelOptions = modelOptions[\s\S]*payload\.runtimeMode = runtimeMode/u);
 });
 
-test("the Inbox offers one unified list when more than two computers are linked", async () => {
+test("the Inbox offers one unified list when multiple computers are linked", async () => {
   const inbox = await readFile(join(root, "qml", "InboxView.qml"), "utf8");
   const section = await readFile(join(root, "qml", "InboxSection.qml"), "utf8");
   const row = await readFile(join(root, "qml", "ThreadRow.qml"), "utf8");
@@ -270,7 +270,7 @@ test("the Inbox offers one unified list when more than two computers are linked"
   assert.match(section, /environmentLabel: root\.showEnvironment \? root\.environmentLabel\(modelData\.environmentId\) : ""/u);
   assert.match(row, /root\.environmentLabel \? root\.environmentLabel \+ "  ·  " : ""/u);
   assert.match(service, /request\("thread\.open", \{ environmentId: openThreadEnvironmentId, threadId: openThreadId \}/u);
-  assert.match(service, /property string allComputersEnvironmentId: ""[\s\S]*allComputersAvailable: allComputersEnvironmentId\.length > 0 && environments\.length > 2/u);
+  assert.match(service, /property string allComputersEnvironmentId: ""[\s\S]*allComputersAvailable: allComputersEnvironmentId\.length > 0 && environments\.length > 1/u);
   assert.match(service, /case "bridge\.ready":[\s\S]*allComputersEnvironmentId = String\(payload\.allComputersEnvironmentId \|\| ""\)/u);
   assert.match(service, /if \(!inboxScopeId \|\| String\(payload\.environmentId \|\| ""\) !== inboxScopeId\) break/u);
   assert.match(service, /case "thread\.snapshot":[\s\S]*String\(payload\.environmentId \|\| ""\) !== openThreadEnvironmentId\) break[\s\S]*thread = payload/u);

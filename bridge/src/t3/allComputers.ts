@@ -116,8 +116,8 @@ export class AllComputersInbox {
     primaryEnvironmentId: string | null,
     primaryInbox: InboxDto | null,
   ): Promise<InboxDto> {
-    if (environments.length <= 2) {
-      throw new BridgeError("ALL_COMPUTERS_UNAVAILABLE", "All computers requires more than two linked computers.");
+    if (environments.length < 2) {
+      throw new BridgeError("ALL_COMPUTERS_UNAVAILABLE", "All computers requires at least two linked computers.");
     }
     await this.deactivate();
     const generation = ++this.generation;

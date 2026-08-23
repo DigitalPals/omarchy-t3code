@@ -39,7 +39,7 @@ Item {
 
   readonly property string pluginDir: manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : ""
   readonly property string bridgePath: pluginDir + "/bin/t3-mini-bridge"
-  readonly property bool allComputersAvailable: allComputersEnvironmentId.length > 0 && environments.length > 2
+  readonly property bool allComputersAvailable: allComputersEnvironmentId.length > 0 && environments.length > 1
   readonly property bool showingAllComputers: allComputersEnvironmentId.length > 0
     && inboxScopeId === allComputersEnvironmentId
   readonly property int attentionCount: countAttention()

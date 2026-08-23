@@ -7,7 +7,7 @@ All notable user-visible changes are documented here. This project follows
 
 ### Added
 
-- Added an All computers Inbox for accounts with more than two linked
+- Added an All computers Inbox for accounts with multiple linked
   computers, with every thread action routed to its source computer.
 
 ### Changed

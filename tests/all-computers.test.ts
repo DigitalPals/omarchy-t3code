@@ -155,7 +155,7 @@ test("All computers connects the non-primary computers and routes their thread s
   assert.throws(() => manager.current(), /Select All computers first/u);
 });
 
-test("All computers stays unavailable for one or two linked computers", async () => {
+test("All computers stays unavailable for a single linked computer", async () => {
   const manager = new AllComputersInbox({
     prepareConnection: async () => assert.fail("No background connection should be prepared."),
   }, {
@@ -165,7 +165,29 @@ test("All computers stays unavailable for one or two linked computers", async ()
   });
 
   await assert.rejects(
-    manager.activate([environment("computer-1"), environment("computer-2")], "computer-1", inbox("computer-1")),
+    manager.activate([environment("computer-1")], "computer-1", inbox("computer-1")),
     (error: unknown) => (error as { code?: string }).code === "ALL_COMPUTERS_UNAVAILABLE",
   );
+});
+
+test("All computers activates when two computers are linked", async () => {
+  const manager = new AllComputersInbox({
+    prepareConnection: async (environmentId) => ({ environmentId }) as PreparedConnection,
+  }, {
+    createSession: (environmentId, onInbox) => ({
+      connect: async () => onInbox(inbox(environmentId)),
+      close: async () => undefined,
+    }) as unknown as T3EnvironmentSession,
+    onInbox: () => undefined,
+    onError: () => assert.fail("The second computer should connect cleanly."),
+  });
+
+  const combined = await manager.activate(
+    [environment("computer-1"), environment("computer-2")],
+    "computer-1",
+    inbox("computer-1"),
+  );
+
+  assert.equal(combined.environmentId, ALL_COMPUTERS_ENVIRONMENT_ID);
+  await manager.deactivate();
 });
