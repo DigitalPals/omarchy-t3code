@@ -58,6 +58,7 @@ const readme = await readFile(join(root, "README.md"), "utf8");
 if (!readme.includes(repositoryUrl)) fail("README.md does not link to the publication repository.");
 
 await access(join(root, "plugin", "share", "applications", `${manifest.id}-callback.desktop.in`));
+await access(join(root, "docs", "images", "inbox.png"));
 await access(join(root, "scripts", "install-package"));
 await access(join(root, "scripts", "uninstall-package"));
 

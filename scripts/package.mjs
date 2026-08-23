@@ -164,6 +164,7 @@ await cp(join(root, "plugin"), packagedPlugin, { recursive: true });
 await mkdir(join(packagedPlugin, "lib"), { recursive: true });
 await mkdir(join(packagedPlugin, "licenses"), { recursive: true });
 await mkdir(join(packagedPlugin, "docs"), { recursive: true });
+await mkdir(join(packagedPlugin, "docs", "images"), { recursive: true });
 await copyFile(executablePath, join(packagedPlugin, "lib", "t3-mini-bridge"));
 await copyFile(join(bridgeDist, "t3-mini-bridge.mjs"), join(packagedPlugin, "lib", "t3-mini-bridge.mjs"));
 await copyFile(join(root, "LICENSE"), join(packagedPlugin, "licenses", "OMARCHY-T3CODE-LICENSE"));
@@ -174,6 +175,7 @@ for (const name of ["README.md", "ARCHITECTURE.md", "SECURITY.md", "UPSTREAM.md"
   if (existsSync(join(root, name))) await copyFile(join(root, name), join(packagedPlugin, name));
 }
 await copyFile(join(root, "docs", "ACCEPTANCE.md"), join(packagedPlugin, "docs", "ACCEPTANCE.md"));
+await copyFile(join(root, "docs", "images", "inbox.png"), join(packagedPlugin, "docs", "images", "inbox.png"));
 await copyFile(join(root, "t3-upstream.lock.json"), join(packagedPlugin, "t3-upstream.lock.json"));
 await chmod(join(packagedPlugin, "bin", "t3-mini-bridge"), 0o755);
 await chmod(join(packagedPlugin, "lib", "t3-mini-bridge"), 0o755);

@@ -4,6 +4,8 @@ A compact native Omarchy/Quickshell client for the T3 Code Inbox. It runs a
 typed TypeScript bridge as a child of the shell; QML owns presentation only.
 There is no embedded browser, web UI, terminal, editor, file tree, or Git UI.
 
+![T3 Code Mini Inbox showing active and settled threads](docs/images/inbox.png)
+
 The supported and compatibility-tested revision is T3 Code Nightly
 `v0.0.34-nightly.20260822.1160` at
 `2c4158f87a1b6a586d0aa5e0338f122cb7887c4f`. The exact source is the
