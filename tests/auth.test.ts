@@ -1,13 +1,21 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { startCallbackServer } from "../bridge/src/auth/callbackServer.ts";
 import { forwardNativeCallback } from "../bridge/src/auth/nativeCallback.ts";
 import { NativeClerkProvider } from "../bridge/src/auth/nativeProvider.ts";
 import { makePkceRequest, stateMatches } from "../bridge/src/auth/pkce.ts";
-import { activateT3ProtocolHandler, type MimeCommand } from "../bridge/src/auth/protocolHandler.ts";
+import {
+  activateT3ProtocolHandler,
+  clearT3ProtocolDefault,
+  installT3CallbackDesktop,
+  type MimeCommand,
+} from "../bridge/src/auth/protocolHandler.ts";
 import { LoopbackOAuthProvider } from "../bridge/src/auth/provider.ts";
 import {
   MemorySecretStore,
@@ -320,24 +328,98 @@ test("T3 callback handler temporarily preserves an existing desktop owner", asyn
     current = args[1] ?? "";
     return { code: 0, stdout: "", stderr: "" };
   };
-  const restore = await activateT3ProtocolHandler(command);
+  let desktopRemoved = false;
+  const restore = await activateT3ProtocolHandler({
+    command,
+    registerDesktop: async () => async () => { desktopRemoved = true; },
+  });
   assert.equal(current, "io.github.digitalpals.omarchy-t3code-callback.desktop");
   await restore();
   assert.equal(current, "t3code-nightly.desktop");
+  assert.equal(desktopRemoved, true);
   assert(calls.some((args) => args.join(" ").includes("x-scheme-handler/t3code")));
 });
 
-test("legacy callback ownership migrates to the publication desktop ID", async () => {
+test("legacy callback ownership is restored after the login window", async () => {
   let current = "io.github.omarchy-t3code-callback.desktop";
   const command: MimeCommand = async (args) => {
     if (args[0] === "query") return { code: 0, stdout: `${current}\n`, stderr: "" };
     current = args[1] ?? "";
     return { code: 0, stdout: "", stderr: "" };
   };
-  const restore = await activateT3ProtocolHandler(command);
+  const restore = await activateT3ProtocolHandler({
+    command,
+    registerDesktop: async () => async () => undefined,
+  });
   assert.equal(current, "io.github.digitalpals.omarchy-t3code-callback.desktop");
   await restore();
+  assert.equal(current, "io.github.omarchy-t3code-callback.desktop");
+});
+
+test("callback handler clears a newly created default before removing its desktop entry", async () => {
+  let current = "";
+  let cleared = false;
+  let removed = false;
+  const command: MimeCommand = async (args) => {
+    if (args[0] === "query") return { code: 0, stdout: `${current}\n`, stderr: "" };
+    current = args[1] ?? "";
+    return { code: 0, stdout: "", stderr: "" };
+  };
+  const restore = await activateT3ProtocolHandler({
+    command,
+    clearDefault: async () => { current = ""; cleared = true; },
+    registerDesktop: async () => async () => { removed = true; },
+  });
   assert.equal(current, "io.github.digitalpals.omarchy-t3code-callback.desktop");
+  await restore();
+  assert.equal(current, "");
+  assert.equal(cleared, true);
+  assert.equal(removed, true);
+});
+
+test("callback desktop registration is hidden, quoted, and removed after login", async () => {
+  const root = await mkdtemp(join(tmpdir(), "t3-callback-desktop-"));
+  const data = join(root, "data");
+  const desktop = join(data, "applications", "io.github.digitalpals.omarchy-t3code-callback.desktop");
+  try {
+    const removeDesktop = await installT3CallbackDesktop(
+      { HOME: root, XDG_CONFIG_HOME: join(root, "config"), XDG_DATA_HOME: data },
+      ["/opt/T3 Mini/t3-mini-bridge"],
+    );
+    const contents = await readFile(desktop, "utf8");
+    assert.match(contents, /^NoDisplay=true$/mu);
+    assert.match(contents, /^MimeType=x-scheme-handler\/t3code;$/mu);
+    assert.match(contents, /^Exec="\/opt\/T3 Mini\/t3-mini-bridge" --oauth-callback %u$/mu);
+    await removeDesktop();
+    await assert.rejects(access(desktop), (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("clearing an ephemeral callback default preserves other MIME owners", async () => {
+  const root = await mkdtemp(join(tmpdir(), "t3-callback-mimeapps-"));
+  const config = join(root, "config");
+  const mimeapps = join(config, "mimeapps.list");
+  try {
+    await mkdir(config, { recursive: true });
+    await writeFile(mimeapps, [
+      "[Default Applications]",
+      "x-scheme-handler/t3code=io.github.digitalpals.omarchy-t3code-callback.desktop;t3code-nightly.desktop;",
+      "text/plain=org.example.Editor.desktop;",
+      "",
+    ].join("\n"));
+    await clearT3ProtocolDefault(
+      "io.github.digitalpals.omarchy-t3code-callback.desktop",
+      { HOME: root, XDG_CONFIG_HOME: config, XDG_DATA_HOME: join(root, "data") },
+    );
+    const contents = await readFile(mimeapps, "utf8");
+    assert.match(contents, /^x-scheme-handler\/t3code=t3code-nightly\.desktop;$/mu);
+    assert.match(contents, /^text\/plain=org\.example\.Editor\.desktop;$/mu);
+    assert.doesNotMatch(contents, /io\.github\.digitalpals\.omarchy-t3code-callback/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("Secret Service values migrate from the development application ID", async () => {

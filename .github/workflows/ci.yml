@@ -45,6 +45,7 @@ jobs:
           grep -Fx uninstall /tmp/archive-files
           grep -Fx plugin/THIRD_PARTY_NOTICES.md /tmp/archive-files
           grep -Fx plugin/docs/ACCEPTANCE.md /tmp/archive-files
+          grep -Fx plugin/preview.png /tmp/archive-files
           cd dist
           sha256sum -c omarchy-t3code-plugin.tar.gz.sha256
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -76,4 +77,9 @@ jobs:
           git -C /tmp/omarchy checkout --detach FETCH_HEAD
           ln -s /tmp/omarchy /usr/share/omarchy
           echo /usr/share/omarchy/bin >> "$GITHUB_PATH"
+      - name: Validate the clean marketplace checkout
+        run: |
+          marketplace_tree=$(mktemp -d)
+          git archive --format=tar HEAD | tar -xf - -C "$marketplace_tree"
+          omarchy plugin validate "$marketplace_tree"
       - run: scripts/check-qml

@@ -31,6 +31,7 @@
     "test": "pnpm --filter @omarchy-t3/bridge test",
     "test:compat": "pnpm --filter @omarchy-t3/bridge test:compat",
     "package": "node scripts/package.mjs",
+    "bundle:marketplace": "node scripts/bundle-marketplace-runtime.mjs",
     "install:plugin": "node scripts/install-plugin.mjs",
     "uninstall:plugin": "scripts/uninstall-package",
     "check:t3-nightly": "node scripts/check-t3-nightly.mjs",

@@ -1,7 +1,7 @@
 # Third-party notices
 
 The bridge bundles selected source modules from T3 Code through the pinned
-`upstream/t3code` Git submodule. The vector path in `plugin/qml/T3Mark.qml` is
+`upstream/t3code` Git submodule. The vector path in `qml/T3Mark.qml` is
 also derived from that revision.
 
 T3 Code is Copyright (c) 2026 T3 Tools Inc. and licensed under the MIT License.

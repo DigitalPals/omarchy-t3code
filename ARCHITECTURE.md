@@ -83,15 +83,16 @@ RPC method name.
    its rotating client token in Secret Service.
 2. Bind an ephemeral listener to literal `127.0.0.1`, create a 256-bit callback
    secret, and place that secret plus the port in Secret Service.
-3. Temporarily register the packaged callback entry for T3's allow-listed
-   `t3code://app/` scheme, preserving any previous desktop owner.
+3. Create a hidden callback entry for T3's allow-listed `t3code://app/` scheme
+   and temporarily register it, preserving any previous desktop owner.
 4. Open a local no-store login page. Google/GitHub selection creates Clerk's
    native OAuth sign-in and redirects the browser to the provider.
 5. The hidden desktop handler passes the resulting custom URI to a short-lived
    bridge invocation, which validates the URI and forwards it to loopback with
    the callback secret.
 6. Validate Clerk's rotating-token nonce, finish the native sign-in, close the
-   listener, clear callback state, and restore the previous URI handler.
+   listener, clear callback state, restore the previous URI handler, and remove
+   the temporary desktop entry.
 7. Request the `t3-relay` JWT template for the active Clerk session. That
    correctly-audienced JWT enters upstream `ManagedRelay`, which performs Relay
    DPoP exchange, environment bootstrap, environment DPoP exchange, WebSocket
@@ -150,6 +151,13 @@ local flag.
 
 ## Packaging
 
+The public repository root is itself the single supported Omarchy plugin:
+`manifest.json` maps directly to `qml/Service.qml` and `qml/BarWidget.qml`.
+That is the layout cloned and validated by `omarchy plugin add`; there is no
+nested or second manifest and no symlink in the tracked tree. Development
+sources can coexist at the root because Omarchy loads only advertised entry
+points.
+
 esbuild produces ESM and CommonJS bridge bundles. `scripts/package.mjs` uses
 Node's current single-executable support (or the legacy postject path on Node
 24), runs an embedded self-test, and copies only the plugin, bundled bridge,
@@ -157,11 +165,14 @@ documentation, and license notices. Archive entries are sorted and normalized
 to epoch timestamps, numeric root ownership, and deterministic gzip headers.
 The T3 source submodule is a build input, not part of the installed plugin.
 
-The small launcher prefers the standalone executable and retains the ESM
-bundle only as a diagnostic fallback when a compatible `node` is already
+The root marketplace layout stores the x86-64 executable as a compressed,
+checksum-bound local payload. The launcher expands it atomically inside the
+plugin checkout on first use and replaces it when a future payload checksum
+changes. Release packages instead carry the executable directly and retain the
+ESM bundle only as a diagnostic fallback when a compatible `node` is already
 available. The service owns process startup, restart, SIGTERM shutdown, and
-therefore leaves no separately managed daemon or systemd unit. Installation
-also writes a hidden freedesktop callback entry. The bridge activates it only
-for sign-in and restores an existing `t3code` scheme owner afterward. The
-archive includes matching install and uninstall entry points; installation
-keeps at most one rollback copy.
+therefore leaves no separately managed daemon or systemd unit. The bridge
+creates its hidden freedesktop callback entry only for sign-in and restores an
+existing `t3code` scheme owner before removing it. The archive includes
+matching install and uninstall entry points; installation keeps at most one
+rollback copy.

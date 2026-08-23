@@ -87,7 +87,7 @@ test("bridge imports upstream reducers instead of implementing wire projection i
   const projection = await readFile(join(root, "bridge", "src", "t3", "projection.ts"), "utf8");
   const session = await readFile(join(root, "bridge", "src", "t3", "session.ts"), "utf8");
   const dpop = await readFile(join(root, "bridge", "src", "t3", "dpop.ts"), "utf8");
-  const qmlRoot = join(root, "plugin", "qml");
+  const qmlRoot = join(root, "qml");
   const qmlFiles = (await Promise.all(
     (await readdir(qmlRoot))
       .filter((name) => name.endsWith(".qml"))

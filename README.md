@@ -4,7 +4,7 @@ A compact native Omarchy/Quickshell client for the T3 Code Inbox. It runs a
 typed TypeScript bridge as a child of the shell; QML owns presentation only.
 There is no embedded browser, web UI, terminal, editor, file tree, or Git UI.
 
-![T3 Code Mini Inbox showing active and settled threads](docs/images/inbox.png)
+![T3 Code Mini Inbox showing active and settled threads](preview.png)
 
 The supported and compatibility-tested revision is T3 Code Nightly
 `v0.0.34-nightly.20260822.1160` at
@@ -76,17 +76,45 @@ repository.
 
 Runtime:
 
-- Omarchy 4.0 or newer with its current Quickshell plugin system and
+- An x86-64 Linux installation of Omarchy 4.0 or newer with its current
+  Quickshell plugin system and
   `wl-paste` (provided by Omarchy's standard `wl-clipboard` installation).
 - A freedesktop Secret Service implementation and `secret-tool` (present in a
   standard Omarchy install).
-- `xdg-open`, `xdg-mime`, and a graphical browser.
+- `xdg-open`, `xdg-mime`, `gzip`, `sha256sum`, and a graphical browser.
+
+The marketplace checkout includes a checksum-verified compressed x86-64
+bridge. It expands into `lib/.runtime/` inside that checkout on first launch;
+it does not download or execute a mutable remote installer. Other Linux
+architectures can build a native release artifact from source.
 
 Development and packaging:
 
 - Git with submodule support.
 - Node.js 24.13.1 or newer.
 - pnpm 11.10.0.
+
+## Security and system footprint
+
+Like every Omarchy plugin, this code runs unsandboxed with the current user's
+permissions inside the long-lived shell. It never invokes `sudo` or `pkexec`,
+does not install or control a systemd service, and does not overwrite shell,
+Hyprland, or terminal configuration. Marketplace validation is a compatibility
+and listing check, not a security review or warranty.
+
+The plugin starts one child bridge and connects to T3 Connect/Clerk, T3 Relay,
+and the T3 environment selected by the signed-in account. It stores the native
+Clerk client token, pending callback secret, and DPoP private material in
+Secret Service, plus the selected environment under the user's XDG state
+directory. Choosing **Sign in with T3 Connect** explicitly creates a hidden
+desktop callback entry and temporarily claims `t3code://`; both the entry and
+the prior scheme-owner change are reversed when that login window closes.
+Installation requires no privilege escalation and runs no remote build.
+
+The root [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md),
+and [licenses](licenses/) inventory cover the plugin, embedded Node runtime,
+pinned T3 code, and bundled dependencies. See [SECURITY.md](SECURITY.md) for
+the complete trust boundaries and private reporting channel.
 
 ## Build from a clean checkout
 
@@ -110,8 +138,22 @@ then writes an installable plugin to `dist/plugin` and a tar archive to
 
 ## Install
 
-From a prebuilt release artifact (no Node, pnpm, Bun, or separate daemon is
-needed at runtime):
+Install directly through Omarchy's standard plugin flow:
+
+```bash
+omarchy plugin add https://github.com/DigitalPals/omarchy-t3code.git --enable
+```
+
+Omarchy shows its unsandboxed-code warning, clones this repository, validates
+the root manifest and entry points, and enables the plugin. No Node, pnpm, Bun,
+separate daemon, download hook, or administrator access is needed. Update the
+Git-managed installation with:
+
+```bash
+omarchy plugin update io.github.digitalpals.omarchy-t3code
+```
+
+Alternatively, use a prebuilt release artifact:
 
 ```bash
 tar -xzf omarchy-t3code-plugin.tar.gz
@@ -129,11 +171,12 @@ From a source checkout on Omarchy:
 pnpm install:plugin
 ```
 
-The installer packages for the current CPU, atomically places the plugin at
-`~/.config/omarchy/plugins/io.github.digitalpals.omarchy-t3code`, rescans the running shell,
-enables the plugin, puts its widget at the left edge of the right bar section
-on first install, and installs a hidden desktop callback entry. Updates preserve
-the widget's current bar position. The installer migrates the earlier
+The source installer packages for the current CPU, atomically places the
+plugin at
+`~/.config/omarchy/plugins/io.github.digitalpals.omarchy-t3code`, rescans the
+running shell, enables the plugin, and puts its widget at the left edge of the
+right bar section on first install. Updates preserve the widget's current bar
+position. The installer migrates the earlier
 `io.github.omarchy-t3code` development ID. It retains only the immediately
 previous installation under the registry-ignored `.backups/` directory, so
 repeated updates do not accumulate copies of the standalone runtime.
@@ -150,7 +193,20 @@ modal at Inbox. Right-clicking the bar icon refreshes environments.
 
 ## Uninstall
 
-The release archive includes an uninstaller beside `install`:
+For a complete marketplace uninstall, including plugin-owned state, temporary
+callback registration, and Secret Service items, run:
+
+```bash
+~/.config/omarchy/plugins/io.github.digitalpals.omarchy-t3code/uninstall
+```
+
+Add `--keep-secrets` only when deliberately retaining the Clerk session and
+DPoP identity for a later reinstall. Omarchy's generic `plugin remove` command
+also removes the checkout and expanded runtime, but intentionally does not know
+about plugin-owned Secret Service or XDG state, so the bundled uninstaller is
+the complete removal path.
+
+The release archive includes the same uninstaller beside `install`:
 
 ```bash
 ./uninstall
@@ -185,10 +241,10 @@ The full real-account procedure is in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 
 ## Troubleshooting
 
-- **Browser returns to the wrong T3 application:** verify
-  `io.github.digitalpals.omarchy-t3code-callback.desktop` exists under
-  `~/.local/share/applications`, then retry from the panel. The bridge activates
-  it for the login window and restores any previous `t3code` handler afterward.
+- **Browser returns to the wrong T3 application:** retry from the panel and
+  verify `xdg-mime` can update the user's MIME associations. The bridge creates
+  its hidden desktop entry only for the active login window and restores any
+  previous `t3code` handler afterward.
 - **Secret store unavailable:** verify `secret-tool lookup application
   io.github.digitalpals.omarchy-t3code item t3-connect-clerk-client >/dev/null` can reach
   an unlocked Secret Service. Do not print its value or replace it with a
@@ -200,8 +256,8 @@ The full real-account procedure is in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
   ~/.config/omarchy/plugins/io.github.digitalpals.omarchy-t3code`, followed by `omarchy
   shell shell rescanPlugins`.
 - **Bridge restarts repeatedly:** run the installed
-  `lib/t3-mini-bridge --self-test`. It should print JSON containing the pinned
-  commit.
+  `bin/t3-mini-bridge --self-test`. It should print JSON containing the pinned
+  commit and also verifies/expands the marketplace runtime when necessary.
 
 ## Project documentation
 

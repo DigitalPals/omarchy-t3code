@@ -51,6 +51,8 @@ The callback boundary:
   CSP, and no-sniff headers;
 - activates the hidden URI handler immediately before browser launch and
   restores any previous T3 scheme owner afterward;
+- creates the hidden desktop entry only for that login window and removes it
+  after owner restoration succeeds;
 - uses no pairing code, clipboard code, out-of-band code, or plaintext callback
   state.
 
@@ -91,9 +93,15 @@ map; they exclude the upstream repository, source maps, tests, credentials,
 and development files.
 
 The standalone executable is built for the installation machine/CI target and
-self-tests its embedded upstream commit before packaging. Archive metadata and
-gzip headers are normalized for reproducibility. Verify release checksums when
-distributing binaries.
+self-tests its embedded upstream commit before packaging. The root marketplace
+plugin carries the x86-64 executable as a compressed local payload plus the
+uncompressed SHA-256; its launcher verifies that checksum before atomically
+placing an executable under the checkout's ignored, owner-written
+`lib/.runtime/` directory. It downloads nothing and requests no elevated
+privileges. The repository and release package both carry the Node, T3, and
+bundled dependency license inventory. Archive metadata and gzip headers are
+normalized for reproducibility. Verify release checksums when distributing
+binaries.
 
 ## Relay credential boundary
 
@@ -114,7 +122,8 @@ authorization codes, Secret Service output, or DPoP private JWKs. Include the
 lock-file tag and commit, bridge error code, Omarchy version, and sanitized
 reproduction steps.
 
-To completely remove the local trust material, run the packaged `./uninstall`
-or `pnpm uninstall:plugin` from a source checkout. `--keep-secrets` is available
+To completely remove the local trust material, run `uninstall` from the
+installed marketplace checkout, the packaged `./uninstall`, or
+`pnpm uninstall:plugin` from a source checkout. `--keep-secrets` is available
 only when deliberately preserving the native session and DPoP identity for a
 later reinstall.

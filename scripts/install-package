@@ -22,11 +22,9 @@ stage=$plugins_root/.$plugin_id.install-$$
 backup_root=$plugins_root/.backups
 backup=
 backup_source=
-desktop_tmp=
 
 cleanup() {
   if [ -d "$stage" ]; then rm -r -- "$stage"; fi
-  if [ -n "$desktop_tmp" ] && [ -f "$desktop_tmp" ]; then rm -- "$desktop_tmp"; fi
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -48,30 +46,6 @@ fi
 # The pre-publication ID may exist beside a newer installation. Once the new
 # target is safely in place, remove only that exact obsolete directory.
 if [ -e "$legacy_target" ]; then rm -r -- "$legacy_target"; fi
-
-data_root=${XDG_DATA_HOME:-${HOME:?HOME is required}/.local/share}
-applications_root=$data_root/applications
-callback_template=$target/share/applications/io.github.digitalpals.omarchy-t3code-callback.desktop.in
-callback_desktop=$applications_root/io.github.digitalpals.omarchy-t3code-callback.desktop
-legacy_callback_desktop=$applications_root/io.github.omarchy-t3code-callback.desktop
-callback_exec=$target/bin/t3-mini-bridge
-mkdir -p -m 700 "$applications_root"
-escaped_callback_exec=$(printf '%s' "$callback_exec" | sed 's/[\\&|]/\\&/g; s/"/\\"/g; s/`/\\`/g; s/\$/\\$/g')
-desktop_tmp=$applications_root/.io.github.digitalpals.omarchy-t3code-callback.desktop-$$
-sed "s|@CALLBACK_EXEC@|\"$escaped_callback_exec\"|" "$callback_template" > "$desktop_tmp"
-chmod 0644 "$desktop_tmp"
-mv -- "$desktop_tmp" "$callback_desktop"
-desktop_tmp=
-rm -f -- "$legacy_callback_desktop"
-if command -v update-desktop-database >/dev/null 2>&1; then
-  update-desktop-database "$applications_root" >/dev/null 2>&1 || true
-fi
-if command -v xdg-mime >/dev/null 2>&1; then
-  current_callback=$(xdg-mime query default x-scheme-handler/t3code 2>/dev/null || true)
-  if [ "$current_callback" = "io.github.omarchy-t3code-callback.desktop" ]; then
-    xdg-mime default io.github.digitalpals.omarchy-t3code-callback.desktop x-scheme-handler/t3code
-  fi
-fi
 
 if [ -n "$backup" ]; then
   find "$backup_root" -mindepth 1 -maxdepth 1 -type d \

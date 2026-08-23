@@ -2,6 +2,7 @@ node_modules/
 bridge/dist/
 dist/
 .cache/
+lib/.runtime/
 *.log
 *.tgz
 .env

@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=T3 Code Mini OAuth Callback
-Comment=Return T3 Connect browser authentication to the Omarchy mini client
-NoDisplay=true
-Terminal=false
-MimeType=x-scheme-handler/t3code;
-Exec=@CALLBACK_EXEC@ --oauth-callback %u

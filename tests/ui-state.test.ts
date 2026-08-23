@@ -8,7 +8,7 @@ import vm from "node:vm";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 test("UI state transitions Login → Inbox → Thread and back", async () => {
-  const source = (await readFile(join(root, "plugin", "qml", "UiState.js"), "utf8"))
+  const source = (await readFile(join(root, "qml", "UiState.js"), "utf8"))
     .replace(".pragma library", "");
   const state = vm.runInNewContext(`${source}\n({ routeForOpen, routeAfterAuthentication })`) as {
     routeForOpen(auth: string, requested: string, hasThread: boolean): string;
@@ -23,7 +23,7 @@ test("UI state transitions Login → Inbox → Thread and back", async () => {
 });
 
 test("bar state summarizes server-projected thread and connection phases", async () => {
-  const source = (await readFile(join(root, "plugin", "qml", "BarState.js"), "utf8"))
+  const source = (await readFile(join(root, "qml", "BarState.js"), "utf8"))
     .replace(".pragma library", "");
   const state = vm.runInNewContext(`${source}\n({ threadPhase, stateLabel })`) as {
     threadPhase(inbox: Record<string, unknown[]>): string;
@@ -51,17 +51,17 @@ test("bar state summarizes server-projected thread and connection phases", async
 });
 
 test("auth completion automatically summons the panel at Inbox", async () => {
-  const service = await readFile(join(root, "plugin", "qml", "Service.qml"), "utf8");
+  const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
   assert.match(service, /case "auth\.completed"[\s\S]*shell\.summon\("io\.github\.digitalpals\.omarchy-t3code", JSON\.stringify\(\{ route: "inbox" \}\)\)/u);
 });
 
 test("T3 mark preserves the upstream SVG winding fill", async () => {
-  const mark = await readFile(join(root, "plugin", "qml", "T3Mark.qml"), "utf8");
+  const mark = await readFile(join(root, "qml", "T3Mark.qml"), "utf8");
   assert.match(mark, /fillRule: ShapePath\.WindingFill/u);
 });
 
 test("Inbox header omits login identity and presents a localized update time", async () => {
-  const inbox = await readFile(join(root, "plugin", "qml", "InboxView.qml"), "utf8");
+  const inbox = await readFile(join(root, "qml", "InboxView.qml"), "utf8");
   assert.doesNotMatch(inbox, /root\.service\.identity|T3 Connect/u);
   assert.match(
     inbox,
@@ -72,7 +72,7 @@ test("Inbox header omits login identity and presents a localized update time", a
 });
 
 test("bridge restart preserves and resubscribes the active thread", async () => {
-  const service = await readFile(join(root, "plugin", "qml", "Service.qml"), "utf8");
+  const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
   assert.match(service, /property string openThreadId/u);
   assert.match(service, /case "inbox\.changed"[\s\S]*resumeOpenThread\(\)/u);
   assert.match(service, /onExited:[\s\S]*threadSubscriptionActive = false/u);
@@ -84,8 +84,8 @@ test("bridge restart preserves and resubscribes the active thread", async () => 
 });
 
 test("assistant replies show changed files instead of raw tool activity", async () => {
-  const threadView = await readFile(join(root, "plugin", "qml", "ThreadView.qml"), "utf8");
-  const changedFiles = await readFile(join(root, "plugin", "qml", "ChangedFilesCard.qml"), "utf8");
+  const threadView = await readFile(join(root, "qml", "ThreadView.qml"), "utf8");
+  const changedFiles = await readFile(join(root, "qml", "ChangedFilesCard.qml"), "utf8");
   assert.match(threadView, /function diffForMessage\(messageId\)/u);
   assert.match(threadView, /function revealChangedFiles\(card\)[\s\S]*changedFilesRevealTimer\.restart\(\)/u);
   assert.match(threadView, /function positionChangedFiles\(\)[\s\S]*card\.mapToItem\(conversation\.contentItem\.contentItem[\s\S]*contentY/u);
@@ -100,8 +100,8 @@ test("assistant replies show changed files instead of raw tool activity", async 
 });
 
 test("thread view keeps only lifecycle actions and uses real pin glyphs", async () => {
-  const threadView = await readFile(join(root, "plugin", "qml", "ThreadView.qml"), "utf8");
-  const threadRow = await readFile(join(root, "plugin", "qml", "ThreadRow.qml"), "utf8");
+  const threadView = await readFile(join(root, "qml", "ThreadView.qml"), "utf8");
+  const threadRow = await readFile(join(root, "qml", "ThreadRow.qml"), "utf8");
   assert.doesNotMatch(threadView, /root\.service\.rename|root\.service\.regenerateTitle|titleField|\brenaming\b/u);
   assert.doesNotMatch(threadView, /tooltipText: "Rename"|Regenerate title/u);
   assert.match(threadView, /lifecycle === "pinned" \? "󰐃" : "󰤱"/u);
@@ -110,7 +110,7 @@ test("thread view keeps only lifecycle actions and uses real pin glyphs", async 
 });
 
 test("working indicator follows pinned T3 elapsed-time formatting", async () => {
-  const source = (await readFile(join(root, "plugin", "qml", "WorkingState.js"), "utf8"))
+  const source = (await readFile(join(root, "qml", "WorkingState.js"), "utf8"))
     .replace(".pragma library", "");
   const state = vm.runInNewContext(`${source}\n({ durationLabel, statusLabel })`) as {
     durationLabel(startIso: string, nowMs: number): string;
@@ -124,17 +124,17 @@ test("working indicator follows pinned T3 elapsed-time formatting", async () => 
   assert.equal(state.statusLabel("starting", "", startMs), "Working...");
   assert.equal(state.statusLabel("idle", startedAt, startMs + 32_000), "");
 
-  const threadView = await readFile(join(root, "plugin", "qml", "ThreadView.qml"), "utf8");
-  const indicator = await readFile(join(root, "plugin", "qml", "WorkingIndicator.qml"), "utf8");
+  const threadView = await readFile(join(root, "qml", "ThreadView.qml"), "utf8");
+  const indicator = await readFile(join(root, "qml", "WorkingIndicator.qml"), "utf8");
   assert.match(threadView, /WorkingIndicator\s*\{[\s\S]*phase: root\.threadData[\s\S]*activeWorkStartedAt/u);
   assert.match(indicator, /Timer\s*\{[\s\S]*interval: 1000[\s\S]*running: root\.visible/u);
 });
 
 test("composer actions fit one row with compact labels", async () => {
-  const composer = await readFile(join(root, "plugin", "qml", "Composer.qml"), "utf8");
-  const modelDropdown = await readFile(join(root, "plugin", "qml", "ModelDropdown.qml"), "utf8");
-  const modelOptions = await readFile(join(root, "plugin", "qml", "ModelOptionsPicker.qml"), "utf8");
-  const compactLabelsSource = (await readFile(join(root, "plugin", "qml", "CompactLabels.js"), "utf8"))
+  const composer = await readFile(join(root, "qml", "Composer.qml"), "utf8");
+  const modelDropdown = await readFile(join(root, "qml", "ModelDropdown.qml"), "utf8");
+  const modelOptions = await readFile(join(root, "qml", "ModelOptionsPicker.qml"), "utf8");
+  const compactLabelsSource = (await readFile(join(root, "qml", "CompactLabels.js"), "utf8"))
     .replace(".pragma library", "");
   const compactLabels = vm.runInNewContext(`${compactLabelsSource}\n({ modelName })`) as {
     modelName(modelLabel: string, providerLabel: string): string;
@@ -167,7 +167,7 @@ test("composer actions fit one row with compact labels", async () => {
 });
 
 test("assistant Markdown cannot request resources or open unsafe URL schemes", async () => {
-  const source = (await readFile(join(root, "plugin", "qml", "MarkdownSafety.js"), "utf8"))
+  const source = (await readFile(join(root, "qml", "MarkdownSafety.js"), "utf8"))
     .replace(".pragma library", "");
   const safety = vm.runInNewContext(`${source}\n({ safeMarkdown, isAllowedExternalUrl })`) as {
     safeMarkdown(value: string): string;
@@ -194,9 +194,9 @@ test("assistant Markdown cannot request resources or open unsafe URL schemes", a
 });
 
 test("thread composer pastes, previews, removes, and sends clipboard screenshots", async () => {
-  const composer = await readFile(join(root, "plugin", "qml", "Composer.qml"), "utf8");
-  const service = await readFile(join(root, "plugin", "qml", "Service.qml"), "utf8");
-  const message = await readFile(join(root, "plugin", "qml", "MessageBubble.qml"), "utf8");
+  const composer = await readFile(join(root, "qml", "Composer.qml"), "utf8");
+  const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
+  const message = await readFile(join(root, "qml", "MessageBubble.qml"), "utf8");
   assert.match(composer, /function handlePasteShortcut\(event\)[\s\S]*StandardKey\.Paste[\s\S]*Quickshell\.clipboardText/u);
   assert.match(composer, /function pasteScreenshot\(\)[\s\S]*service\.pasteScreenshot/u);
   assert.match(composer, /Image\s*\{[\s\S]*modelData\.previewUrl/u);
@@ -209,8 +209,8 @@ test("thread composer pastes, previews, removes, and sends clipboard screenshots
 });
 
 test("new-thread composer mirrors model options and access controls from replies", async () => {
-  const inbox = await readFile(join(root, "plugin", "qml", "InboxView.qml"), "utf8");
-  const service = await readFile(join(root, "plugin", "qml", "Service.qml"), "utf8");
+  const inbox = await readFile(join(root, "qml", "InboxView.qml"), "utf8");
+  const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
   assert.match(inbox, /function descriptorsForModel\(value\)[\s\S]*models\[i\]\.modelOptions/u);
   assert.match(inbox, /function selectedOptionValues\(\)[\s\S]*id:[\s\S]*value:/u);
   assert.match(inbox, /Row\s*\{\s*id: createActionRow[\s\S]*readonly property real selectorWidth/u);
@@ -224,19 +224,19 @@ test("new-thread composer mirrors model options and access controls from replies
 });
 
 test("live plugin startup uses a QProcess-safe launcher and waits for service injection", async () => {
-  const service = await readFile(join(root, "plugin", "qml", "Service.qml"), "utf8");
-  const panel = await readFile(join(root, "plugin", "qml", "Panel.qml"), "utf8");
+  const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
+  const panel = await readFile(join(root, "qml", "Panel.qml"), "utf8");
   assert.match(service, /command: \["\/bin\/sh", root\.bridgePath\]/u);
   assert.match(panel, /active: root\.service !== null/u);
 });
 
 test("the mini client opens in the bar-owned Omarchy modal", async () => {
-  const manifest = JSON.parse(await readFile(join(root, "plugin", "manifest.json"), "utf8")) as {
+  const manifest = JSON.parse(await readFile(join(root, "manifest.json"), "utf8")) as {
     kinds: string[];
     entryPoints: Record<string, string>;
   };
-  const widget = await readFile(join(root, "plugin", "qml", "BarWidget.qml"), "utf8");
-  const panel = await readFile(join(root, "plugin", "qml", "Panel.qml"), "utf8");
+  const widget = await readFile(join(root, "qml", "BarWidget.qml"), "utf8");
+  const panel = await readFile(join(root, "qml", "Panel.qml"), "utf8");
 
   assert.deepEqual(manifest.kinds, ["service", "bar-widget"]);
   assert.equal(manifest.entryPoints.panel, undefined);
@@ -252,20 +252,17 @@ test("the mini client opens in the bar-owned Omarchy modal", async () => {
   assert.doesNotMatch(panel, /FloatingWindow/u);
 });
 
-test("packaging installs a callback handler that forwards URI arguments", async () => {
-  const launcher = await readFile(join(root, "plugin", "bin", "t3-mini-bridge"), "utf8");
-  const desktop = await readFile(
-    join(root, "plugin", "share", "applications", "io.github.digitalpals.omarchy-t3code-callback.desktop.in"),
-    "utf8",
-  );
+test("packaging uses an ephemeral callback handler that forwards URI arguments", async () => {
+  const launcher = await readFile(join(root, "bin", "t3-mini-bridge"), "utf8");
+  const callback = await readFile(join(root, "bridge", "src", "auth", "protocolHandler.ts"), "utf8");
   const installer = await readFile(join(root, "scripts", "install-package"), "utf8");
   const sourceInstaller = await readFile(join(root, "scripts", "install-plugin.mjs"), "utf8");
   const uninstaller = await readFile(join(root, "scripts", "uninstall-package"), "utf8");
   assert.match(launcher, /exec "\$plugin_root\/lib\/t3-mini-bridge" "\$@"/u);
-  assert.match(desktop, /^MimeType=x-scheme-handler\/t3code;$/mu);
-  assert.match(desktop, /^Exec=@CALLBACK_EXEC@ --oauth-callback %u$/mu);
-  assert.match(installer, /io\.github\.digitalpals\.omarchy-t3code-callback\.desktop/u);
-  assert.match(installer, /update-desktop-database/u);
+  assert.match(callback, /NoDisplay=true/u);
+  assert.match(callback, /--oauth-callback %u/u);
+  assert.match(callback, /await removeDesktop\(\)/u);
+  assert.doesNotMatch(installer, /callback\.desktop/u);
   assert.match(installer, /bar put "\$plugin_id" --section right --index 0/u);
   assert.match(sourceInstaller, /join\(root, "dist", "install"\)/u);
   assert.match(uninstaller, /--keep-secrets/u);
@@ -275,8 +272,8 @@ test("packaging installs a callback handler that forwards URI arguments", async 
 });
 
 test("blocked Relay connection hides and disables task creation", async () => {
-  const service = await readFile(join(root, "plugin", "qml", "Service.qml"), "utf8");
-  const inbox = await readFile(join(root, "plugin", "qml", "InboxView.qml"), "utf8");
+  const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
+  const inbox = await readFile(join(root, "qml", "InboxView.qml"), "utf8");
   assert.match(
     inbox,
     /id: newButton[\s\S]*visible: root\.service\.connectionPhase === "connected"[\s\S]*enabled: root\.service\.connectionPhase === "connected"/u,

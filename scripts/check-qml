@@ -5,11 +5,11 @@ repo_root=$(cd "$(dirname "$0")/.." && pwd)
 qmlformat_bin=${QMLFORMAT_BIN:-/usr/lib/qt6/bin/qmlformat}
 qmllint_bin=${QMLLINT_BIN:-/usr/lib/qt6/bin/qmllint}
 
-for file in "$repo_root"/plugin/qml/*.qml; do
+for file in "$repo_root"/qml/*.qml; do
   "$qmlformat_bin" --ignore-settings "$file" >/dev/null
 done
 
-omarchy plugin validate "$repo_root/plugin"
+node "$repo_root/scripts/validate-plugin.mjs" "$repo_root"
 
 qml_import_root=$(mktemp -d)
 qml_report=$(mktemp)
@@ -19,14 +19,14 @@ mkdir -p "$qml_import_root/qs"
 ln -s /usr/share/omarchy/shell/Commons "$qml_import_root/qs/Commons"
 ln -s /usr/share/omarchy/shell/Ui "$qml_import_root/qs/Ui"
 
-"$qmllint_bin" -I "$qml_import_root" "$repo_root"/plugin/qml/*.qml >"$qml_report" 2>&1
+"$qmllint_bin" -I "$qml_import_root" "$repo_root"/qml/*.qml >"$qml_report" 2>&1
 if rg '^Warning:.*(was not found|not resolved|unknown grouped property|Cannot assign|Could not compile|incompatible type|inheritance cycle)' "$qml_report" \
   | rg -qv 'QProcess::ExitStatus'; then
   cat "$qml_report" >&2
   exit 1
 fi
 
-cp -r "$repo_root/plugin/qml" "$qml_smoke_root/plugin-qml"
+cp -r "$repo_root/qml" "$qml_smoke_root/plugin-qml"
 
 # KeyboardPanel is a native layer-shell surface, so Quickshell can only load
 # its PanelWindow backend inside a Wayland session. Keep the content smoke test

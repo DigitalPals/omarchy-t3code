@@ -5,6 +5,14 @@ All notable user-visible changes are documented here. This project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Made the repository root a directly installable Omarchy marketplace plugin,
+  added the root preview, and bundled a checksum-verified x86-64 runtime with
+  its complete license inventory.
+- Limited desktop callback registration to the active T3 Connect login window
+  and restored the previous scheme owner before removing the hidden handler.
+
 ## [0.1.0] - 2026-08-23
 
 ### Added

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.digitalpals.omarchy-t3code",
+  "name": "T3 Code Mini",
+  "version": "0.1.0",
+  "author": "John Pals",
+  "license": "MIT",
+  "description": "A compact native T3 Code Inbox and thread client for Omarchy.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "qml/Service.qml",
+    "barWidget": "qml/BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "T3 Code",
+    "description": "T3 Inbox connection and attention status",
+    "category": "Development",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
