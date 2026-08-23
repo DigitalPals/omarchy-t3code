@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "AttentionState.js" as AttentionState
 
 BorderSurface {
   id: root
@@ -10,6 +11,8 @@ BorderSurface {
   required property string threadId
   required property var service
   property var answers: ({})
+  readonly property color inputColor: AttentionState.inputColor()
+  readonly property color secondaryText: Util.alpha(Color.foreground, 0.70)
 
   function valueFor(questionId) { return answers[String(questionId)] }
   function isSelected(questionId, label) {
@@ -49,8 +52,8 @@ BorderSurface {
   width: parent ? parent.width : implicitWidth
   height: content.implicitHeight + Style.spacing.rowPaddingX * 2
   radius: Style.cornerRadius
-  color: Util.alpha(Color.accent, 0.10)
-  borderSpec: Border.controlSpec("selected", Color.foreground, Color.accent)
+  color: Util.alpha(root.inputColor, 0.055)
+  borderSpec: Border.controlSpec("normal", root.inputColor, root.inputColor)
 
   Column {
     id: content
@@ -62,7 +65,7 @@ BorderSurface {
 
     Text {
       text: "T3 needs your input"
-      color: Color.foreground
+      color: root.inputColor
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle
       font.bold: true
@@ -78,29 +81,111 @@ BorderSurface {
 
         Text {
           width: parent.width
-          text: String(parent.modelData.header || "Question") + "\n" + String(parent.modelData.question || "")
+          text: String(parent.modelData.header || "Question")
+          color: root.secondaryText
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          font.bold: true
+          wrapMode: Text.WordWrap
+        }
+        Text {
+          width: parent.width
+          text: String(parent.modelData.question || "")
           color: Color.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           wrapMode: Text.WordWrap
         }
-        Flow {
+        Text {
+          visible: parent.modelData.multiSelect === true
           width: parent.width
-          spacing: Style.spacing.sm
+          text: "Select one or more options."
+          color: root.secondaryText
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+        }
+        Column {
+          width: parent.width
+          spacing: Style.spacing.xs
           Repeater {
             model: questionBlock.modelData.options || []
             Button {
+              id: optionButton
               required property var modelData
-              text: String(modelData.label)
-              tooltipText: String(modelData.description || "")
-              active: root.isSelected(questionBlock.modelData.id, String(modelData.label))
-              onClicked: root.setOption(questionBlock.modelData, String(modelData.label))
+              readonly property string optionLabel: String(modelData.label || "")
+              readonly property string optionDescription: {
+                var description = String(modelData.description || "")
+                return description !== optionLabel ? description : ""
+              }
+
+              width: questionBlock.width
+              height: Math.max(optionCopy.implicitHeight, selectionMark.height) + Style.spacing.controlPaddingY * 2 + Style.space(2)
+              active: root.isSelected(questionBlock.modelData.id, optionLabel)
+              accent: root.inputColor
+              background: Util.alpha(Color.foreground, 0.035)
+              bordered: false
+              focusable: true
+              onClicked: root.setOption(questionBlock.modelData, optionLabel)
+
+              Column {
+                id: optionCopy
+                anchors.left: parent.left
+                anchors.right: selectionMark.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: Style.spacing.controlPaddingX + Style.space(1)
+                anchors.rightMargin: Style.spacing.sm
+                spacing: Style.spacing.xs
+
+                Text {
+                  width: parent.width
+                  text: optionButton.optionLabel
+                  color: Color.foreground
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.body
+                  font.bold: true
+                  wrapMode: Text.WordWrap
+                }
+                Text {
+                  visible: optionButton.optionDescription.length > 0
+                  width: parent.width
+                  text: optionButton.optionDescription
+                  color: root.secondaryText
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  wrapMode: Text.WordWrap
+                }
+              }
+
+              BorderSurface {
+                id: selectionMark
+                anchors.right: parent.right
+                anchors.rightMargin: Style.spacing.controlPaddingX + Style.space(1)
+                anchors.verticalCenter: parent.verticalCenter
+                width: Style.space(16)
+                height: width
+                radius: questionBlock.modelData.multiSelect ? Style.space(3) : width / 2
+                color: optionButton.active ? root.inputColor : "transparent"
+                borderSpec: Border.flat(optionButton.active ? root.inputColor : root.secondaryText, 1)
+
+                Text {
+                  anchors.centerIn: parent
+                  visible: optionButton.active
+                  text: "✓"
+                  color: Color.background
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
+              }
             }
           }
         }
         TextField {
           width: parent.width
           placeholderText: "Or type another answer"
+          placeholderTextColor: root.secondaryText
+          accent: root.inputColor
           onEditingFinished: root.setCustom(parent.modelData.id, text)
         }
       }
@@ -108,8 +193,9 @@ BorderSurface {
 
     Button {
       anchors.right: parent.right
-      text: "Submit answers"
+      text: (root.inputData.questions || []).length > 1 ? "Submit answers" : "Submit answer"
       iconText: "󰒊"
+      accent: root.inputColor
       active: true
       enabled: root.complete()
       onClicked: root.service.respondInput(root.threadId, String(root.inputData.requestId), root.answers)

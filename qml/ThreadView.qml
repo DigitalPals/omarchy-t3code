@@ -11,6 +11,7 @@ Item {
   signal backRequested()
 
   readonly property var threadData: service.thread
+  readonly property bool hasPendingInput: threadData !== null && (threadData.inputs || []).length > 0
   property var changedFilesToReveal: null
 
   function diffForMessage(messageId) {
@@ -128,7 +129,9 @@ Item {
     ScrollView {
       id: conversation
       width: parent.width
-      height: root.threadData ? parent.height - y - composer.height - parent.spacing : parent.height - y
+      height: root.threadData
+        ? parent.height - y - (composer.visible ? composer.height + parent.spacing : 0)
+        : parent.height - y
       clip: true
       ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -185,7 +188,7 @@ Item {
 
     Composer {
       id: composer
-      visible: root.threadData !== null
+      visible: root.threadData !== null && !root.hasPendingInput
       service: root.service
       threadData: root.threadData || ({})
     }

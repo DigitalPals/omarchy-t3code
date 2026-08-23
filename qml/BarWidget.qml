@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.Commons
 import qs.Ui as Ui
+import "AttentionState.js" as AttentionState
 import "BarState.js" as BarState
 
 Ui.Panel {
@@ -14,6 +15,7 @@ Ui.Panel {
   readonly property bool connected: t3 && t3.connectionPhase === "connected"
   readonly property bool hasAttention: t3 && t3.attentionCount > 0
   readonly property string stateText: BarState.stateLabel(t3)
+  readonly property color inputColor: AttentionState.inputColor()
 
   implicitWidth: icon.implicitWidth
   implicitHeight: icon.implicitHeight
@@ -51,30 +53,12 @@ Ui.Panel {
           height: Style.space(11)
           markColor: icon.foreground
         }
-
-        Rectangle {
-          visible: root.hasAttention
-          width: Style.space(11)
-          height: width
-          radius: width / 2
-          anchors.right: parent.right
-          anchors.top: parent.top
-          color: Color.urgent
-          Text {
-            anchors.centerIn: parent
-            text: root.t3 && root.t3.attentionCount > 9 ? "9+" : String(root.t3 ? root.t3.attentionCount : 0)
-            color: Color.background
-            font.family: Style.font.family
-            font.pixelSize: Style.space(7)
-            font.bold: true
-          }
-        }
       }
 
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: root.stateText
-        color: icon.active ? icon.activeColor : icon.foreground
+        color: root.stateText === "Input" ? root.inputColor : (icon.active ? icon.activeColor : icon.foreground)
         font.family: icon.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: root.hasAttention

@@ -1,10 +1,13 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "AttentionState.js" as AttentionState
 
 BorderSurface {
   id: root
   required property var threadData
+  readonly property bool inputNeeded: threadData.phase === "inputNeeded"
+  readonly property color attentionColor: AttentionState.attentionColor(String(threadData.phase), Color.urgent)
 
   signal activated(string threadId)
   signal pinRequested(string threadId, bool pinned)
@@ -29,9 +32,11 @@ BorderSurface {
   width: parent ? parent.width : implicitWidth
   height: content.implicitHeight + Style.spacing.rowPaddingX * 2
   radius: Style.cornerRadius
-  color: hover.hovered ? Style.hoverFillFor(Color.foreground, Color.accent) : Util.alpha(Color.foreground, 0.035)
+  color: hover.hovered
+    ? Style.hoverFillFor(Color.foreground, Color.accent)
+    : (root.inputNeeded ? Util.alpha(root.attentionColor, 0.055) : Util.alpha(Color.foreground, 0.035))
   borderSpec: root.threadData.attention
-    ? Border.controlSpec("selected", Color.foreground, Color.urgent)
+    ? Border.controlSpec("selected", Color.foreground, root.attentionColor)
     : Border.controlSpec("normal", Color.foreground, Color.accent)
 
   HoverHandler { id: hover }
@@ -54,7 +59,7 @@ BorderSurface {
         height: width
         radius: width / 2
         anchors.verticalCenter: parent.verticalCenter
-        color: root.threadData.attention ? Color.urgent
+        color: root.threadData.attention ? root.attentionColor
           : (root.threadData.phase === "working" || root.threadData.phase === "starting" ? Color.accent : Color.muted)
       }
 
@@ -71,7 +76,7 @@ BorderSurface {
       Text {
         id: phase
         text: root.phaseLabel(root.threadData.phase)
-        color: root.threadData.attention ? Color.urgent : Color.muted
+        color: root.threadData.attention ? root.attentionColor : Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         font.bold: true

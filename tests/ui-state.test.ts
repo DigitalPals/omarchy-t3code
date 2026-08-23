@@ -50,6 +50,41 @@ test("bar state summarizes server-projected thread and connection phases", async
   assert.equal(state.stateLabel({ ...connected, authPhase: "signedOut" }), "Signed out");
 });
 
+test("pending input options show their explanations inline", async () => {
+  const input = await readFile(join(root, "qml", "InputCard.qml"), "utf8");
+  assert.match(input, /readonly property string optionDescription/u);
+  assert.match(input, /text: optionButton\.optionDescription/u);
+  assert.match(input, /visible: optionButton\.optionDescription\.length > 0/u);
+  assert.match(input, /readonly property color secondaryText: Util\.alpha\(Color\.foreground, 0\.70\)/u);
+  assert.match(input, /id: selectionMark/u);
+  assert.match(input, /bordered: false/u);
+  assert.doesNotMatch(input, /tooltipText: String\(modelData\.description/u);
+});
+
+test("pending input owns the reply area until it is answered", async () => {
+  const threadView = await readFile(join(root, "qml", "ThreadView.qml"), "utf8");
+  assert.match(threadView, /readonly property bool hasPendingInput:[^\n]*threadData\.inputs/u);
+  assert.match(threadView, /composer\.visible \? composer\.height \+ parent\.spacing : 0/u);
+  assert.match(threadView, /visible: root\.threadData !== null && !root\.hasPendingInput/u);
+});
+
+test("input-required attention uses one orange state color", async () => {
+  const source = (await readFile(join(root, "qml", "AttentionState.js"), "utf8"))
+    .replace(".pragma library", "");
+  const state = vm.runInNewContext(`${source}\n({ inputColor, attentionColor })`) as {
+    inputColor(): string;
+    attentionColor(phase: string, urgentColor: string): string;
+  };
+  assert.equal(state.inputColor(), "#f59e0b");
+  assert.equal(state.attentionColor("inputNeeded", "red"), "#f59e0b");
+  assert.equal(state.attentionColor("approvalNeeded", "red"), "red");
+
+  const threadRow = await readFile(join(root, "qml", "ThreadRow.qml"), "utf8");
+  assert.match(threadRow, /attentionColor: AttentionState\.attentionColor/u);
+  assert.match(threadRow, /root\.inputNeeded \? Util\.alpha\(root\.attentionColor/u);
+  assert.match(threadRow, /color: root\.threadData\.attention \? root\.attentionColor/u);
+});
+
 test("auth completion automatically summons the panel at Inbox", async () => {
   const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
   assert.match(service, /case "auth\.completed"[\s\S]*shell\.summon\("io\.github\.digitalpals\.omarchy-t3code", JSON\.stringify\(\{ route: "inbox" \}\)\)/u);
@@ -257,6 +292,9 @@ test("the mini client opens in the bar-owned Omarchy modal", async () => {
   assert.match(widget, /Ui\.Panel\s*\{/u);
   assert.match(widget, /Ui\.WidgetButton\s*\{/u);
   assert.match(widget, /text: root\.stateText/u);
+  assert.match(widget, /readonly property color inputColor: AttentionState\.inputColor\(\)/u);
+  assert.match(widget, /color: root\.stateText === "Input" \? root\.inputColor/u);
+  assert.doesNotMatch(widget, /attentionCount > 9/u);
   assert.doesNotMatch(widget, /root\.connected \? "#61c98b"/u);
   assert.match(widget, /Ui\.KeyboardPanel\s*\{/u);
   assert.match(widget, /anchorItem: icon/u);

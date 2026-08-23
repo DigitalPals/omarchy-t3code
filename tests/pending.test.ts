@@ -35,5 +35,6 @@ test("pending user input keeps exact Nightly question/option semantics", () => {
   const projected = derivePendingInputs([request]);
   assert.equal(projected[0]?.questions[0]?.id, "framework");
   assert.equal(projected[0]?.questions[0]?.options[0]?.label, "QML");
+  assert.equal(projected[0]?.questions[0]?.options[0]?.description, "Native shell UI");
   assert.deepEqual(derivePendingInputs([request, activity("r", 2, "user-input.resolved", { requestId: "input-1" })]), []);
 });
