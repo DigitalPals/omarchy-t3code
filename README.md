@@ -114,8 +114,11 @@ Clerk client token, pending callback secret, and DPoP private material in
 Secret Service, plus the selected environment under the user's XDG state
 directory. Choosing **Sign in with T3 Connect** explicitly creates a hidden
 desktop callback entry and temporarily claims `t3code://`; both the entry and
-the prior scheme-owner change are reversed when that login window closes.
-Installation requires no privilege escalation and runs no remote build.
+the prior scheme-owner change are reversed when that login window closes. The
+bridge does not edit T3 Code's desktop entry, and it only restores the prior
+owner if the plugin still owns the scheme. A later login replaces and removes
+any plugin callback entry left by an interrupted attempt. Installation requires
+no privilege escalation and runs no remote build.
 
 The root [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md),
 and [licenses](licenses/) inventory cover the plugin, embedded Node runtime,
@@ -219,9 +222,12 @@ The full real-account procedure is in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 ## Troubleshooting
 
 - **Browser returns to the wrong T3 application:** retry from the panel and
-  verify `xdg-mime` can update the user's MIME associations. The bridge creates
-  its hidden desktop entry only for the active login window and restores any
-  previous `t3code` handler afterward.
+  verify `xdg-mime` can update the user's MIME associations. If `xdg-mime query
+  default x-scheme-handler/t3code` and `gio mime x-scheme-handler/t3code`
+  disagree, an older `xdg-utils` may be reporting a cache fallback. The bridge
+  uses the explicit user association for ownership checks, creates its hidden
+  desktop entry only for the active login window, and restores the prior owner
+  afterward.
 - **Secret store unavailable:** verify `secret-tool lookup application
   io.github.digitalpals.omarchy-t3code item t3-connect-clerk-client >/dev/null` can reach
   an unlocked Secret Service. Do not print its value or replace it with a

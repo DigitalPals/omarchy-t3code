@@ -12,6 +12,9 @@ All notable user-visible changes are documented here. This project follows
   its complete license inventory.
 - Limited desktop callback registration to the active T3 Connect login window
   and restored the previous scheme owner before removing the hidden handler.
+- Made callback ownership use explicit user MIME associations, preventing an
+  `xdg-utils` cache fallback from opening T3 Code instead of completing login,
+  while preserving handler changes made during the login window.
 - Made approval-required the per-task default and added an explicit warning
   confirmation before a new task can use broader runtime access.
 - Made the marketplace SEA checkout-path-independent and added a CI-enforced
