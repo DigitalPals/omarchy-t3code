@@ -8,6 +8,8 @@ contributors alike.
 ## Development setup
 
 ```bash
+git clone https://github.com/DigitalPals/omarchy-t3code.git
+cd omarchy-t3code
 git submodule update --init upstream/t3code
 pnpm install --frozen-lockfile
 pnpm check
@@ -22,6 +24,14 @@ installer, or release-layout changes also need `pnpm package` and inspection of
 the generated archive. Real-account testing follows
 [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md); never place production credentials in
 tests, issues, or fixtures.
+
+`pnpm package` builds and self-tests the standalone bridge, then writes
+`dist/plugin` and `dist/omarchy-t3code-plugin.tar.gz`. To install that result
+from a source checkout on Omarchy, run `pnpm install:plugin`. The installer
+atomically replaces the plugin, rescans the shell, enables the widget on first
+install, preserves its position on updates, migrates the earlier
+`io.github.omarchy-t3code` development ID, and retains at most one rollback
+copy under the registry-ignored `.backups/` directory.
 
 ## Upstream updates
 

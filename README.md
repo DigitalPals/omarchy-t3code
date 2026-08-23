@@ -97,8 +97,8 @@ Development and packaging:
 ## Security and system footprint
 
 Like every Omarchy plugin, this code runs unsandboxed with the current user's
-permissions inside the long-lived shell. It never invokes `sudo` or `pkexec`,
-does not install or control a systemd service, and does not overwrite shell,
+permissions inside the long-lived shell. It stays within that user boundary,
+does not install or control a system service, and does not overwrite shell,
 Hyprland, or terminal configuration. Marketplace validation is a compatibility
 and listing check, not a security review or warranty.
 
@@ -116,25 +116,12 @@ and [licenses](licenses/) inventory cover the plugin, embedded Node runtime,
 pinned T3 code, and bundled dependencies. See [SECURITY.md](SECURITY.md) for
 the complete trust boundaries and private reporting channel.
 
-## Build from a clean checkout
+## Build from source
 
-```bash
-git clone https://github.com/DigitalPals/omarchy-t3code.git
-cd omarchy-t3code
-git submodule update --init upstream/t3code
-pnpm install --frozen-lockfile
-pnpm check
-pnpm package
-```
-
-Initialize only the top-level `upstream/t3code` submodule. The pinned T3 tree
-contains an unrelated internal gitlink without `.gitmodules` metadata, so a
-recursive submodule command fails inside upstream even though this project's
-required checkout is complete.
-
-`pnpm package` builds and self-tests a Node single-executable application,
-then writes an installable plugin to `dist/plugin` and a tar archive to
-`dist/omarchy-t3code-plugin.tar.gz`.
+The clean-checkout build, validation, source-install, and packaging procedure
+is maintained in [CONTRIBUTING.md](CONTRIBUTING.md). Initialize only the
+top-level `upstream/t3code` submodule; its pinned tree contains an unrelated
+internal gitlink that must not be initialized recursively.
 
 ## Install
 
@@ -164,22 +151,6 @@ Release automation currently publishes a `linux-x64` archive. It is
 architecture-specific and must run on an x86-64 Omarchy machine. Other Linux
 architectures can build an archive for their current CPU from source. Verify a
 download first with `sha256sum -c omarchy-t3code-plugin.tar.gz.sha256`.
-
-From a source checkout on Omarchy:
-
-```bash
-pnpm install:plugin
-```
-
-The source installer packages for the current CPU, atomically places the
-plugin at
-`~/.config/omarchy/plugins/io.github.digitalpals.omarchy-t3code`, rescans the
-running shell, enables the plugin, and puts its widget at the left edge of the
-right bar section on first install. Updates preserve the widget's current bar
-position. The installer migrates the earlier
-`io.github.omarchy-t3code` development ID. It retains only the immediately
-previous installation under the registry-ignored `.backups/` directory, so
-repeated updates do not accumulate copies of the standalone runtime.
 
 If Omarchy is not running, restart it and then run:
 
