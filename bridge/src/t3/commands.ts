@@ -118,9 +118,13 @@ function shell(session: T3EnvironmentSession, threadId: string): OrchestrationTh
 
 export class T3Commands {
   constructor(
-    private readonly session: T3EnvironmentSession,
+    private readonly sessionSource: (environmentId?: string) => T3EnvironmentSession,
     private readonly attachments = new T3ImageAttachmentStore(),
   ) {}
+
+  private session(payload: Payload): T3EnvironmentSession {
+    return this.sessionSource(typeof payload.environmentId === "string" ? payload.environmentId : undefined);
+  }
 
   async pasteClipboardImage(payload: Payload) {
     return this.attachments.pasteClipboard(string(payload, "threadId"));
@@ -132,19 +136,20 @@ export class T3Commands {
   }
 
   async create(payload: Payload): Promise<{ threadId: string; sequence: number }> {
+    const session = this.session(payload);
     const projectId = string(payload, "projectId");
     const prompt = string(payload, "prompt");
-    const project = this.session.projection.shell?.projects.find((entry) => entry.id === projectId);
+    const project = session.projection.shell?.projects.find((entry) => entry.id === projectId);
     if (!project) throw new BridgeError("PROJECT_NOT_FOUND", "Choose a project from the connected environment.");
     let selection = modelSelection(payload) ?? project.defaultModelSelection;
     if (selection === null) {
       const advertised =
-        this.session.projection.models().find((entry) => entry.available && entry.isDefault) ??
-        this.session.projection.models().find((entry) => entry.available);
+        session.projection.models().find((entry) => entry.available && entry.isDefault) ??
+        session.projection.models().find((entry) => entry.available);
       if (!advertised) throw new BridgeError("MODEL_REQUIRED", "No available T3 provider/model was advertised.");
       selection = { instanceId: advertised.instanceId, model: advertised.model } as ModelSelection;
     }
-    selection = applyModelOptions(this.session, selection, payload);
+    selection = applyModelOptions(session, selection, payload);
     const threadId = id();
     const createdAt = now();
     const title =
@@ -153,7 +158,7 @@ export class T3Commands {
       "New thread";
     const selectedRuntimeMode = runtimeMode(payload);
     const interactionMode = typeof payload.interactionMode === "string" ? payload.interactionMode : "default";
-    const result = await this.session.dispatch({
+    const result = await session.dispatch({
       type: "thread.turn.start",
       commandId: id(),
       threadId,
@@ -180,16 +185,17 @@ export class T3Commands {
   }
 
   async send(payload: Payload): Promise<{ sequence: number }> {
+    const session = this.session(payload);
     const threadId = string(payload, "threadId");
     const attachmentIds = Array.isArray(payload.attachmentIds)
       ? payload.attachmentIds.map((attachmentId) => String(attachmentId))
       : [];
     const attachments = this.attachments.resolve(threadId, attachmentIds);
-    const thread = shell(this.session, threadId);
-    const detailed = this.session.projection.thread;
+    const thread = shell(session, threadId);
+    const detailed = session.projection.thread;
     const current = detailed?.id === threadId ? detailed.modelSelection : thread.modelSelection;
     const selected = modelSelection(payload, current);
-    const result = await this.session.dispatch({
+    const result = await session.dispatch({
       type: "thread.turn.start",
       commandId: id(),
       threadId,
@@ -205,8 +211,9 @@ export class T3Commands {
   }
 
   async interrupt(payload: Payload): Promise<{ sequence: number }> {
-    const thread = shell(this.session, string(payload, "threadId"));
-    return this.session.dispatch({
+    const session = this.session(payload);
+    const thread = shell(session, string(payload, "threadId"));
+    return session.dispatch({
       type: "thread.turn.interrupt",
       commandId: id(),
       threadId: thread.id,
@@ -216,43 +223,49 @@ export class T3Commands {
   }
 
   async settle(payload: Payload): Promise<{ sequence: number }> {
-    capability(this.session, "settlement");
-    return this.session.dispatch({ type: "thread.settle", commandId: id(), threadId: string(payload, "threadId") });
+    const session = this.session(payload);
+    capability(session, "settlement");
+    return session.dispatch({ type: "thread.settle", commandId: id(), threadId: string(payload, "threadId") });
   }
 
   async unsettle(payload: Payload): Promise<{ sequence: number }> {
-    capability(this.session, "settlement");
-    return this.session.dispatch({
+    const session = this.session(payload);
+    capability(session, "settlement");
+    return session.dispatch({
       type: "thread.unsettle", commandId: id(), threadId: string(payload, "threadId"), reason: "user",
     });
   }
 
   async snooze(payload: Payload): Promise<{ sequence: number }> {
-    capability(this.session, "snooze");
-    return this.session.dispatch({
+    const session = this.session(payload);
+    capability(session, "snooze");
+    return session.dispatch({
       type: "thread.snooze", commandId: id(), threadId: string(payload, "threadId"), snoozedUntil: string(payload, "until"),
     });
   }
 
   async unsnooze(payload: Payload): Promise<{ sequence: number }> {
-    capability(this.session, "snooze");
-    return this.session.dispatch({
+    const session = this.session(payload);
+    capability(session, "snooze");
+    return session.dispatch({
       type: "thread.unsnooze", commandId: id(), threadId: string(payload, "threadId"), reason: "user",
     });
   }
 
   async pin(payload: Payload): Promise<{ sequence: number }> {
-    capability(this.session, "pinning");
-    return this.session.dispatch({ type: "thread.pin", commandId: id(), threadId: string(payload, "threadId") });
+    const session = this.session(payload);
+    capability(session, "pinning");
+    return session.dispatch({ type: "thread.pin", commandId: id(), threadId: string(payload, "threadId") });
   }
 
   async unpin(payload: Payload): Promise<{ sequence: number }> {
-    capability(this.session, "pinning");
-    return this.session.dispatch({ type: "thread.unpin", commandId: id(), threadId: string(payload, "threadId") });
+    const session = this.session(payload);
+    capability(session, "pinning");
+    return session.dispatch({ type: "thread.unpin", commandId: id(), threadId: string(payload, "threadId") });
   }
 
   async setModel(payload: Payload): Promise<{ sequence: number }> {
-    return this.session.dispatch({
+    return this.session(payload).dispatch({
       type: "thread.meta.update",
       commandId: id(),
       threadId: string(payload, "threadId"),
@@ -261,11 +274,12 @@ export class T3Commands {
   }
 
   async setModelOption(payload: Payload): Promise<{ sequence: number }> {
+    const session = this.session(payload);
     const threadId = string(payload, "threadId");
-    const shellThread = shell(this.session, threadId);
-    const detailed = this.session.projection.thread;
+    const shellThread = shell(session, threadId);
+    const detailed = session.projection.thread;
     const selection = detailed?.id === threadId ? detailed.modelSelection : shellThread.modelSelection;
-    const provider = this.session.projection.config?.providers.find(
+    const provider = session.projection.config?.providers.find(
       (entry) => entry.instanceId === selection.instanceId,
     );
     const model = provider?.models.find((entry) => entry.slug === selection.model);
@@ -295,7 +309,7 @@ export class T3Commands {
         ? { ...descriptor, currentValue: value }
         : descriptor,
     );
-    return this.session.dispatch({
+    return session.dispatch({
       type: "thread.meta.update",
       commandId: id(),
       threadId,
@@ -308,7 +322,7 @@ export class T3Commands {
   }
 
   async rename(payload: Payload): Promise<{ sequence: number }> {
-    return this.session.dispatch({
+    return this.session(payload).dispatch({
       type: "thread.meta.update",
       commandId: id(),
       threadId: string(payload, "threadId"),
@@ -317,11 +331,12 @@ export class T3Commands {
   }
 
   async regenerateTitle(payload: Payload): Promise<{ sequence: number }> {
-    const config = this.session.projection.config;
+    const session = this.session(payload);
+    const config = session.projection.config;
     if (!config?.environment.capabilities.threadTitleRegeneration) {
       throw new BridgeError("CAPABILITY_UNSUPPORTED", "This T3 environment does not support title regeneration.");
     }
-    return this.session.dispatch({
+    return session.dispatch({
       type: "thread.meta.update",
       commandId: id(),
       threadId: string(payload, "threadId"),
@@ -330,7 +345,7 @@ export class T3Commands {
   }
 
   async setRuntime(payload: Payload): Promise<{ sequence: number }> {
-    return this.session.dispatch({
+    return this.session(payload).dispatch({
       type: "thread.runtime-mode.set",
       commandId: id(),
       threadId: string(payload, "threadId"),
@@ -340,7 +355,7 @@ export class T3Commands {
   }
 
   async setInteraction(payload: Payload): Promise<{ sequence: number }> {
-    return this.session.dispatch({
+    return this.session(payload).dispatch({
       type: "thread.interaction-mode.set",
       commandId: id(),
       threadId: string(payload, "threadId"),
@@ -350,7 +365,7 @@ export class T3Commands {
   }
 
   async respondApproval(payload: Payload): Promise<{ sequence: number }> {
-    return this.session.dispatch({
+    return this.session(payload).dispatch({
       type: "thread.approval.respond",
       commandId: id(),
       threadId: string(payload, "threadId"),
@@ -361,7 +376,7 @@ export class T3Commands {
   }
 
   async respondInput(payload: Payload): Promise<{ sequence: number }> {
-    return this.session.dispatch({
+    return this.session(payload).dispatch({
       type: "thread.user-input.respond",
       commandId: id(),
       threadId: string(payload, "threadId"),

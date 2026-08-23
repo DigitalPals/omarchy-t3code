@@ -6,6 +6,7 @@ import "AttentionState.js" as AttentionState
 BorderSurface {
   id: root
   required property var threadData
+  property string environmentLabel: ""
   readonly property bool inputNeeded: threadData.phase === "inputNeeded"
   readonly property color attentionColor: AttentionState.attentionColor(String(threadData.phase), Color.urgent)
 
@@ -89,7 +90,10 @@ BorderSurface {
 
       Text {
         width: parent.width - actions.implicitWidth - parent.spacing
-        text: String(root.threadData.project || "") + "  ·  " + String(root.threadData.model || root.threadData.provider || "") + "  ·  " + root.relativeTime(root.threadData.latestActivityAt)
+        text: (root.environmentLabel ? root.environmentLabel + "  ·  " : "")
+          + String(root.threadData.project || "") + "  ·  "
+          + String(root.threadData.model || root.threadData.provider || "") + "  ·  "
+          + root.relativeTime(root.threadData.latestActivityAt)
         color: Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption

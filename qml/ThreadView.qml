@@ -36,7 +36,7 @@ Item {
   }
 
   function snoozeUntilTomorrow() {
-    service.snooze(String(threadData.id), new Date(Date.now() + 86400000).toISOString())
+    service.snooze(String(threadData.environmentId), String(threadData.id), new Date(Date.now() + 86400000).toISOString())
   }
 
   Connections {
@@ -90,19 +90,25 @@ Item {
           visible: root.threadData && root.threadData.capabilities.pinning
           iconText: root.threadData && root.threadData.lifecycle === "pinned" ? "󰐃" : "󰤱"
           tooltipText: root.threadData && root.threadData.lifecycle === "pinned" ? "Unpin" : "Pin"
-          onClicked: root.threadData.lifecycle === "pinned" ? root.service.unpin(String(root.threadData.id)) : root.service.pin(String(root.threadData.id))
+          onClicked: root.threadData.lifecycle === "pinned"
+            ? root.service.unpin(String(root.threadData.environmentId), String(root.threadData.id))
+            : root.service.pin(String(root.threadData.environmentId), String(root.threadData.id))
         }
         Button {
           visible: root.threadData && root.threadData.capabilities.snooze
           iconText: root.threadData && root.threadData.lifecycle === "snoozed" ? "󰒱" : "󰒲"
           tooltipText: root.threadData && root.threadData.lifecycle === "snoozed" ? "Wake" : "Snooze for one day"
-          onClicked: root.threadData.lifecycle === "snoozed" ? root.service.unsnooze(String(root.threadData.id)) : root.snoozeUntilTomorrow()
+          onClicked: root.threadData.lifecycle === "snoozed"
+            ? root.service.unsnooze(String(root.threadData.environmentId), String(root.threadData.id))
+            : root.snoozeUntilTomorrow()
         }
         Button {
           visible: root.threadData && root.threadData.capabilities.settlement
           iconText: root.threadData && root.threadData.lifecycle === "settled" ? "󰅖" : "󰄬"
           tooltipText: root.threadData && root.threadData.lifecycle === "settled" ? "Unsettle" : "Settle"
-          onClicked: root.threadData.lifecycle === "settled" ? root.service.unsettle(String(root.threadData.id)) : root.service.settle(String(root.threadData.id))
+          onClicked: root.threadData.lifecycle === "settled"
+            ? root.service.unsettle(String(root.threadData.environmentId), String(root.threadData.id))
+            : root.service.settle(String(root.threadData.environmentId), String(root.threadData.id))
         }
       }
     }
@@ -176,12 +182,24 @@ Item {
 
         Repeater {
           model: root.threadData ? root.threadData.approvals : []
-          ApprovalCard { required property var modelData; approvalData: modelData; threadId: String(root.threadData.id); service: root.service }
+          ApprovalCard {
+            required property var modelData
+            approvalData: modelData
+            environmentId: String(root.threadData.environmentId)
+            threadId: String(root.threadData.id)
+            service: root.service
+          }
         }
 
         Repeater {
           model: root.threadData ? root.threadData.inputs : []
-          InputCard { required property var modelData; inputData: modelData; threadId: String(root.threadData.id); service: root.service }
+          InputCard {
+            required property var modelData
+            inputData: modelData
+            environmentId: String(root.threadData.environmentId)
+            threadId: String(root.threadData.id)
+            service: root.service
+          }
         }
       }
     }

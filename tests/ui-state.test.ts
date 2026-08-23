@@ -102,7 +102,7 @@ test("Inbox header omits login identity and presents a localized update time", a
     inbox,
     /function formatUpdatedAt\(value\)[\s\S]*new Date\([\s\S]*toLocaleString\(Qt\.locale\(\), Locale\.ShortFormat\)/u,
   );
-  assert.match(inbox, /"Connected" \+ \(root\.formattedInboxUpdatedAt/u);
+  assert.match(inbox, /: "Connected"\) \+ \(root\.formattedInboxUpdatedAt/u);
   assert.doesNotMatch(inbox, /String\(root\.service\.inbox\.updatedAt/u);
 });
 
@@ -111,7 +111,7 @@ test("bridge restart preserves and resubscribes the active thread", async () => 
   assert.match(service, /property string openThreadId/u);
   assert.match(service, /case "inbox\.changed"[\s\S]*resumeOpenThread\(\)/u);
   assert.match(service, /onExited:[\s\S]*threadSubscriptionActive = false/u);
-  assert.match(service, /request\("thread\.open", \{ threadId: openThreadId \}/u);
+  assert.match(service, /request\("thread\.open", \{ environmentId: openThreadEnvironmentId, threadId: openThreadId \}/u);
   assert.match(service, /function failPendingRequests\(\)[\s\S]*queuedWrites = \[\]/u);
   const openResponse = service.slice(service.indexOf("function resumeOpenThread"), service.indexOf("function handleResponse"));
   assert.doesNotMatch(openResponse, /threadSubscriptionActive = true/u);
@@ -198,7 +198,7 @@ test("composer actions fit one row with compact labels", async () => {
   assert.doesNotMatch(modelDropdown, /root\.value =/u);
   assert.match(composer, /readonly property string selectedModel/u);
   assert.doesNotMatch(composer, /root\.selectedModel =/u);
-  assert.match(composer, /service\.send\(String\(threadData\.id\), value, attachmentIds/u);
+  assert.match(composer, /service\.send\(String\(threadData\.environmentId\), String\(threadData\.id\), value, attachmentIds/u);
 });
 
 test("assistant Markdown cannot request resources or open unsafe URL schemes", async () => {
@@ -256,6 +256,24 @@ test("new-thread composer mirrors model options and access controls from replies
   assert.match(inbox, /id: createRuntimeDropdown[\s\S]*triggerFontSize: Style\.font\.caption[\s\S]*showProviderColumn: false[\s\S]*value: root\.selectedRuntimeMode/u);
   assert.match(inbox, /selectedOptionValues\(\),[\s\S]*selectedRuntimeMode\)/u);
   assert.match(service, /function createThread\([^)]*modelOptions, runtimeMode\)[\s\S]*payload\.modelOptions = modelOptions[\s\S]*payload\.runtimeMode = runtimeMode/u);
+});
+
+test("the Inbox offers one unified list when multiple computers are linked", async () => {
+  const inbox = await readFile(join(root, "qml", "InboxView.qml"), "utf8");
+  const section = await readFile(join(root, "qml", "InboxSection.qml"), "utf8");
+  const row = await readFile(join(root, "qml", "ThreadRow.qml"), "utf8");
+  const service = await readFile(join(root, "qml", "Service.qml"), "utf8");
+
+  assert.match(inbox, /if \(root\.service\.allComputersAvailable\)[\s\S]*label: "All computers"/u);
+  assert.match(inbox, /value: root\.service\.inboxScopeId/u);
+  assert.match(inbox, /enabled: root\.service\.connectionPhase === "connected" && !root\.service\.showingAllComputers/u);
+  assert.match(section, /environmentLabel: root\.showEnvironment \? root\.environmentLabel\(modelData\.environmentId\) : ""/u);
+  assert.match(row, /root\.environmentLabel \? root\.environmentLabel \+ "  ·  " : ""/u);
+  assert.match(service, /request\("thread\.open", \{ environmentId: openThreadEnvironmentId, threadId: openThreadId \}/u);
+  assert.match(service, /property string allComputersEnvironmentId: ""[\s\S]*allComputersAvailable: allComputersEnvironmentId\.length > 0 && environments\.length > 1/u);
+  assert.match(service, /case "bridge\.ready":[\s\S]*allComputersEnvironmentId = String\(payload\.allComputersEnvironmentId \|\| ""\)/u);
+  assert.match(service, /if \(!inboxScopeId \|\| String\(payload\.environmentId \|\| ""\) !== inboxScopeId\) break/u);
+  assert.match(service, /case "thread\.snapshot":[\s\S]*String\(payload\.environmentId \|\| ""\) !== openThreadEnvironmentId\) break[\s\S]*thread = payload/u);
 });
 
 test("new tasks require an explicit confirmation before broader access", async () => {
@@ -354,7 +372,7 @@ test("blocked Relay connection hides and disables task creation", async () => {
   );
   assert.match(
     service,
-    /function refreshConnection\(\)[\s\S]*connectionPhase === "connected"[\s\S]*refreshInbox\(\)[\s\S]*selectedEnvironmentId[\s\S]*selectEnvironment\(selectedEnvironmentId\)/u,
+    /function refreshConnection\(\)[\s\S]*connectionPhase === "connected"[\s\S]*refreshInbox\(\)[\s\S]*selectedEnvironmentId[\s\S]*selectInboxScope\(selectedEnvironmentId\)/u,
   );
   assert.match(
     inbox,

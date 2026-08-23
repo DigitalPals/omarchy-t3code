@@ -110,11 +110,12 @@ function summary(
   snapshot: OrchestrationShellSnapshot,
   config: ServerConfig,
   section: InboxSection,
-  now: string,
+  options: { now: string; environmentId: string },
 ): ThreadSummaryDto {
   const project = snapshot.projects.find((entry) => entry.id === thread.projectId);
   const model = thread.modelSelection;
   return {
+    environmentId: options.environmentId,
     id: thread.id,
     projectId: thread.projectId,
     project: project?.title ?? "Unknown project",
@@ -130,8 +131,8 @@ function summary(
     snoozedUntil: thread.snoozedUntil ?? null,
     settled: section === "settled",
     canPin: capabilities(config).pinning,
-    canSettle: capabilities(config).settlement && canSettle(thread, { now }),
-    canSnooze: capabilities(config).snooze && canSnooze(thread, { now }),
+    canSettle: capabilities(config).settlement && canSettle(thread, { now: options.now }),
+    canSnooze: capabilities(config).snooze && canSnooze(thread, { now: options.now }),
   };
 }
 
@@ -289,10 +290,10 @@ export class T3Projection {
       capabilities: capabilities(this.config),
       projects: this.shell.projects.map((project) => ({ id: project.id, title: project.title })),
       models: this.models(),
-      pinned: pinned.map((thread) => summary(thread, this.shell!, this.config!, "pinned", now)),
-      active: active.map((thread) => summary(thread, this.shell!, this.config!, "active", now)),
-      snoozed: snoozed.map((thread) => summary(thread, this.shell!, this.config!, "snoozed", now)),
-      settled: settled.map((thread) => summary(thread, this.shell!, this.config!, "settled", now)),
+      pinned: pinned.map((thread) => summary(thread, this.shell!, this.config!, "pinned", { now, environmentId })),
+      active: active.map((thread) => summary(thread, this.shell!, this.config!, "active", { now, environmentId })),
+      snoozed: snoozed.map((thread) => summary(thread, this.shell!, this.config!, "snoozed", { now, environmentId })),
+      settled: settled.map((thread) => summary(thread, this.shell!, this.config!, "settled", { now, environmentId })),
     };
   }
 
