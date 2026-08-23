@@ -26,7 +26,6 @@ if rg '^Warning:.*(was not found|not resolved|unknown grouped property|Cannot as
   exit 1
 fi
 
-cp "$repo_root/tests/qml/Smoke.qml" "$qml_smoke_root/shell.qml"
 cp -r "$repo_root/plugin/qml" "$qml_smoke_root/plugin-qml"
 
 # KeyboardPanel is a native layer-shell surface, so Quickshell can only load
@@ -34,16 +33,19 @@ cp -r "$repo_root/plugin/qml" "$qml_smoke_root/plugin-qml"
 # available to headless CI, while exercising the complete modal whenever a
 # compositor is available.
 qml_platform=offscreen
-qml_check_modal=0
+qml_smoke_source=$repo_root/tests/qml/Smoke.qml
 if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
   qml_platform=wayland
-  qml_check_modal=1
+  qml_smoke_source=$repo_root/tests/qml/SmokeModal.qml
 fi
+cp "$qml_smoke_source" "$qml_smoke_root/shell.qml"
+set +e
 qml_output=$(QML_IMPORT_PATH="$qml_import_root" \
   QT_QPA_PLATFORM="$qml_platform" \
-  T3_QML_CHECK_MODAL="$qml_check_modal" \
   timeout 10s quickshell -p "$qml_smoke_root/shell.qml" 2>&1)
-if [[ $qml_output != *T3_QML_SMOKE_OK* ]] || [[ $qml_output == *T3_QML_ERROR* ]]; then
+qml_status=$?
+set -e
+if (( qml_status != 0 )) || [[ $qml_output != *T3_QML_SMOKE_OK* ]] || [[ $qml_output == *T3_QML_ERROR* ]]; then
   printf '%s\n' "$qml_output" >&2
   exit 1
 fi

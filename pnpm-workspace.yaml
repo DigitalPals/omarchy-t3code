@@ -6,6 +6,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+  msgpackr-extract: true
 
 catalog:
   "@effect/platform-node": 4.0.0-beta.103
